@@ -21,6 +21,13 @@ from pydantic import BaseModel
 
 load_dotenv()
 
+# Sanitize env vars — Railway sometimes adds trailing newlines when pasting
+import os
+for key in ("OPENAI_API_KEY", "NEO4J_URI", "NEO4J_USERNAME", "NEO4J_PASSWORD"):
+    val = os.environ.get(key)
+    if val:
+        os.environ[key] = val.strip()
+
 import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
