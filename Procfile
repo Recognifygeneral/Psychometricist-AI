@@ -1,1 +1,1 @@
-web: python -m web.app
+web: PYTHONPATH=. python -m web.app
