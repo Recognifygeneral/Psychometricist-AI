@@ -1,0 +1,239 @@
+{
+  "trait": {
+    "name": "Extraversion",
+    "code": "E",
+    "description": "Tendency toward sociability, assertiveness, positive emotionality, and engagement with the external world.",
+    "source": "IPIP 50-item Big Five Markers (Goldberg, 1992). Public domain.",
+    "reliability_alpha": 0.87
+  },
+  "facets": [
+    {
+      "code": "E1",
+      "name": "Friendliness",
+      "neo_name": "Warmth",
+      "description": "Genuine warmth and affection toward others; enjoy making friends and being close to people."
+    },
+    {
+      "code": "E2",
+      "name": "Gregariousness",
+      "neo_name": "Gregariousness",
+      "description": "Preference for the company of others; enjoy social gatherings and group activities."
+    },
+    {
+      "code": "E3",
+      "name": "Assertiveness",
+      "neo_name": "Assertiveness",
+      "description": "Tendency to take charge, lead, and express opinions confidently."
+    },
+    {
+      "code": "E4",
+      "name": "Activity Level",
+      "neo_name": "Activity",
+      "description": "High pace of living; staying busy, energetic, and always on the move."
+    },
+    {
+      "code": "E5",
+      "name": "Excitement-Seeking",
+      "neo_name": "Excitement-Seeking",
+      "description": "Need for environmental stimulation; craving excitement, risk, and novelty."
+    },
+    {
+      "code": "E6",
+      "name": "Cheerfulness",
+      "neo_name": "Positive Emotions",
+      "description": "Tendency to experience positive emotions such as joy, happiness, and optimism."
+    }
+  ],
+  "items": [
+    {
+      "position": 1,
+      "text": "Am the life of the party.",
+      "keying": "+",
+      "primary_facet": "E2",
+      "secondary_facets": ["E6"]
+    },
+    {
+      "position": 2,
+      "text": "Feel comfortable around people.",
+      "keying": "+",
+      "primary_facet": "E1",
+      "secondary_facets": ["E2"]
+    },
+    {
+      "position": 3,
+      "text": "Start conversations.",
+      "keying": "+",
+      "primary_facet": "E3",
+      "secondary_facets": ["E1"]
+    },
+    {
+      "position": 4,
+      "text": "Talk to a lot of different people at parties.",
+      "keying": "+",
+      "primary_facet": "E2",
+      "secondary_facets": ["E1"]
+    },
+    {
+      "position": 5,
+      "text": "Don't mind being the center of attention.",
+      "keying": "+",
+      "primary_facet": "E3",
+      "secondary_facets": ["E5"]
+    },
+    {
+      "position": 6,
+      "text": "Don't talk a lot.",
+      "keying": "-",
+      "primary_facet": "E2",
+      "secondary_facets": ["E3"]
+    },
+    {
+      "position": 7,
+      "text": "Keep in the background.",
+      "keying": "-",
+      "primary_facet": "E3",
+      "secondary_facets": ["E2"]
+    },
+    {
+      "position": 8,
+      "text": "Have little to say.",
+      "keying": "-",
+      "primary_facet": "E2",
+      "secondary_facets": ["E3"]
+    },
+    {
+      "position": 9,
+      "text": "Don't like to draw attention to myself.",
+      "keying": "-",
+      "primary_facet": "E3",
+      "secondary_facets": ["E5"]
+    },
+    {
+      "position": 10,
+      "text": "Am quiet around strangers.",
+      "keying": "-",
+      "primary_facet": "E1",
+      "secondary_facets": ["E2"]
+    }
+  ],
+  "probes": [
+    {
+      "id": "probe_E1_1",
+      "facet": "E1",
+      "item_position": 2,
+      "text": "Tell me about a time you met someone new. How did the interaction go?",
+      "target_behavior": "Warmth and comfort in social encounters with strangers"
+    },
+    {
+      "id": "probe_E1_2",
+      "facet": "E1",
+      "item_position": 10,
+      "text": "How do you usually feel when you're in a group where you don't know anyone?",
+      "target_behavior": "Comfort vs. anxiety around unfamiliar people"
+    },
+    {
+      "id": "probe_E2_1",
+      "facet": "E2",
+      "item_position": 1,
+      "text": "Describe what an ideal weekend looks like for you. Who's around?",
+      "target_behavior": "Preference for solitary vs. group activities"
+    },
+    {
+      "id": "probe_E2_2",
+      "facet": "E2",
+      "item_position": 4,
+      "text": "Think of the last social gathering you attended. What was your experience like?",
+      "target_behavior": "Engagement breadth in social situations"
+    },
+    {
+      "id": "probe_E3_1",
+      "facet": "E3",
+      "item_position": 3,
+      "text": "Tell me about a project or situation where you took the lead. What happened?",
+      "target_behavior": "Assertiveness, initiative, and leadership behavior"
+    },
+    {
+      "id": "probe_E3_2",
+      "facet": "E3",
+      "item_position": 7,
+      "text": "When a group needs to make a decision, what role do you usually play?",
+      "target_behavior": "Active participation vs. deferring to others"
+    },
+    {
+      "id": "probe_E4_1",
+      "facet": "E4",
+      "item_position": null,
+      "text": "Walk me through a typical day for you. How do you spend your time and energy?",
+      "target_behavior": "Pace of life, busyness, energy expenditure"
+    },
+    {
+      "id": "probe_E5_1",
+      "facet": "E5",
+      "item_position": 5,
+      "text": "What's something exciting or adventurous you've done recently—or would love to try?",
+      "target_behavior": "Thrill-seeking, novelty preference, stimulation need"
+    },
+    {
+      "id": "probe_E6_1",
+      "facet": "E6",
+      "item_position": null,
+      "text": "Tell me about something that made you really happy recently. What was it about?",
+      "target_behavior": "Frequency and intensity of positive emotional experience"
+    },
+    {
+      "id": "probe_E6_2",
+      "facet": "E6",
+      "item_position": null,
+      "text": "How would your closest friends describe your general mood?",
+      "target_behavior": "Baseline positive affect and optimism"
+    }
+  ],
+  "linguistic_features": [
+    {
+      "name": "positive_emotion_words",
+      "description": "Frequency of positive emotion words (happy, great, love, excited, wonderful, fun)",
+      "direction": "+",
+      "facets": ["E6"]
+    },
+    {
+      "name": "social_reference_words",
+      "description": "Frequency of social/people references (friends, party, group, together, we, people)",
+      "direction": "+",
+      "facets": ["E1", "E2"]
+    },
+    {
+      "name": "first_person_singular",
+      "description": "Frequency of first-person singular pronouns (I, me, my, mine) — introverts use more self-focused language",
+      "direction": "-",
+      "facets": ["E2", "E3"]
+    },
+    {
+      "name": "response_length",
+      "description": "Average word count per response — extraverts tend to produce longer, more verbose responses",
+      "direction": "+",
+      "facets": ["E2", "E3"]
+    },
+    {
+      "name": "assertive_language",
+      "description": "Frequency of assertive/leadership words (decided, led, organized, told, managed, built)",
+      "direction": "+",
+      "facets": ["E3"]
+    },
+    {
+      "name": "hedging_language",
+      "description": "Frequency of hedging/uncertainty markers (maybe, perhaps, I think, not sure, kind of, sort of)",
+      "direction": "-",
+      "facets": ["E3"]
+    }
+  ],
+  "scoring": {
+    "scale": "1-5 Likert (Very Inaccurate to Very Accurate)",
+    "reverse_scoring": "For '-' keyed items: score = 6 - raw_score",
+    "domain_score": "Mean of all 10 items (after reverse scoring)",
+    "classification": {
+      "low": [1.0, 2.3],
+      "medium": [2.4, 3.6],
+      "high": [3.7, 5.0]
+    }
+  }
+}
