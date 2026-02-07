@@ -1,9 +1,13 @@
 """Interviewer agent — conducts the conversational psychometric interview.
 
-The Interviewer receives the current assessment state (which facet to
-explore, which probes remain) and produces a warm, open-ended question
-that naturally elicits personality-relevant behavior without the user
-realizing they are being assessed.
+Revised design (aligned with project spec):
+  - Flat probe pool — draws from ALL probes regardless of facet
+  - No facet routing or facet-aware state management
+  - Fixed session length; probe selection is sequential from pool
+  - Warm, open-ended, behaviorally-focused questioning
+
+The Interviewer's job is to elicit natural, personality-relevant
+conversation without the user realizing they're being assessed.
 """
 
 from __future__ import annotations
@@ -11,7 +15,7 @@ from __future__ import annotations
 from langchain_core.messages import AIMessage, SystemMessage
 from langchain_openai import ChatOpenAI
 
-from src.graph.graph_client import get_unused_probe, get_facets_for_trait
+from src.graph.graph_client import get_all_probes
 from src.models.state import AssessmentState
 
 SYSTEM_PROMPT = """\
@@ -36,7 +40,6 @@ CURRENT PROBE (for inspiration only — do NOT read it verbatim):
 TARGET BEHAVIOR to elicit:
 {target_behavior}
 
-FACET BEING EXPLORED: {facet_name}
 TURN: {turn} of {max_turns}
 """
 
@@ -57,29 +60,37 @@ def _get_llm() -> ChatOpenAI:
     return ChatOpenAI(model="gpt-5.2", temperature=0.7)
 
 
+def _select_probe(probes_used: list[str]) -> dict | None:
+    """Select the next probe from the flat pool, skipping already-used ones.
+
+    Returns None if all probes are exhausted.
+    """
+    all_probes = get_all_probes()
+    for probe in all_probes:
+        if probe["id"] not in probes_used:
+            return probe
+    return None
+
+
 def interviewer_node(state: AssessmentState) -> dict:
     """LangGraph node: generate the next interviewer question.
 
+    Draws from a flat pool of probes (no facet routing).
     Returns a dict of state updates (messages, probes_used, etc.).
     """
     turn_count = state.get("turn_count", 0)
-    max_turns = state.get("max_turns", 12)
-    current_facet = state.get("current_facet", "E1")
+    max_turns = state.get("max_turns", 10)
     probes_used = state.get("probes_used", [])
 
-    # ── Fetch probe from graph (Neo4j or local JSON fallback) ─────────
-    probe = get_unused_probe(current_facet, probes_used)
-    facets = get_facets_for_trait()
-    facet_map = {f["code"]: f["name"] for f in facets}
+    # ── Select probe from flat pool ───────────────────────────────────
+    probe = _select_probe(probes_used)
 
-    facet_name = facet_map.get(current_facet, current_facet)
-
-    # Fallback if no more probes for this facet
+    # Fallback if pool exhausted
     if probe is None:
         probe = {
-            "id": f"fallback_{current_facet}",
-            "text": f"Tell me more about how you experience {facet_name.lower()} in your daily life.",
-            "target_behavior": f"General {facet_name.lower()} behavior",
+            "id": f"fallback_{turn_count}",
+            "text": "Tell me about something that's been on your mind lately.",
+            "target_behavior": "General personality expression",
         }
 
     # ── Build prompt ──────────────────────────────────────────────────
@@ -91,7 +102,6 @@ def interviewer_node(state: AssessmentState) -> dict:
         system_text = SYSTEM_PROMPT.format(
             probe_text=probe["text"],
             target_behavior=probe["target_behavior"],
-            facet_name=facet_name,
             turn=turn_count + 1,
             max_turns=max_turns,
         )

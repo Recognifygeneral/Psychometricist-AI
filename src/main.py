@@ -12,7 +12,7 @@ import uuid
 from dotenv import load_dotenv
 from langgraph.types import Command
 
-from src.workflow import build_graph, FACET_ORDER, MAX_TURNS
+from src.workflow import build_graph, MAX_TURNS
 
 load_dotenv()
 
@@ -21,29 +21,35 @@ BANNER = """
 ╔══════════════════════════════════════════════════════════════╗
 ║         AI Psychometricist — Extraversion Assessment        ║
 ║                                                             ║
-║  Have a natural conversation. There are no right or wrong   ║
-║  answers — just be yourself.                                ║
+║  This is a scientific feasibility study.                    ║
+║  Have a natural conversation — there are no right or wrong  ║
+║  answers. Just be yourself.                                 ║
+║                                                             ║
+║  The interview has {max_turns} questions.                          ║
 ║  Type 'quit' at any time to end the session early.          ║
 ╚══════════════════════════════════════════════════════════════╝
 """
 
 
 def main() -> None:
-    print(BANNER)
+    print(BANNER.format(max_turns=MAX_TURNS))
 
     graph = build_graph()
-    thread_id = str(uuid.uuid4())
-    config = {"configurable": {"thread_id": thread_id}}
+    session_id = str(uuid.uuid4())[:8]
+    config = {"configurable": {"thread_id": session_id}}
 
-    # Initial state
+    # Initial state — simplified (no facet routing)
     initial_state = {
-        "current_facet": FACET_ORDER[0],
-        "explored_facets": [],
+        "session_id": session_id,
         "probes_used": [],
         "transcript": "",
-        "facet_scores": [],
+        "turn_records": [],
+        "turn_features": [],
+        "scoring_results": {},
         "overall_score": 0.0,
         "classification": "",
+        "confidence": 0.0,
+        "facet_scores": [],
         "turn_count": 0,
         "max_turns": MAX_TURNS,
         "done": False,
@@ -60,19 +66,16 @@ def main() -> None:
             last_ai = messages[-1]
             print(f"\n🎙️  Interviewer: {last_ai.content}\n")
 
-        # Check if we've reached the scorer (done)
+        # Check if we've reached the scorer (done with classification)
         if result.get("classification"):
             # Scorer has produced results — print final report
-            print("\n" + "═" * 60)
-            print("ASSESSMENT COMPLETE")
-            print("═" * 60)
-            if messages:
-                # The last message from scorer is the summary
-                print(messages[-1].content)
-            print(f"\nOverall Score : {result.get('overall_score', 'N/A')}")
-            print(f"Classification: {result.get('classification', 'N/A')}")
-            print("═" * 60)
+            print("\n" + messages[-1].content if messages else "")
+            print(f"\nSession ID: {session_id}")
             break
+
+        # Show progress
+        turn = result.get("turn_count", 0)
+        print(f"  [{turn}/{MAX_TURNS} turns completed]")
 
         # Get user input
         try:
@@ -83,13 +86,14 @@ def main() -> None:
 
         if user_input.lower() == "quit":
             print("\nEnding session early — moving to scoring…")
-            # Force scoring by resuming with a short goodbye
             result = graph.invoke(
                 Command(resume="I'd prefer to stop here, thank you."),
                 config,
             )
-            # Set done to force scorer on next router pass
-            # We need to update state and re-invoke
+            continue
+
+        if not user_input:
+            print("  (Please type a response)")
             continue
 
         # Resume the graph with user input

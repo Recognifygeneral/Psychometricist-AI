@@ -1,8 +1,14 @@
 """LangGraph workflow — wires Interviewer and Scorer into a stateful graph.
 
+Revised design (aligned with project spec):
+  - Fixed number of turns (NOT adaptive)
+  - Flat probe pool (no facet rotation for MVP)
+  - Per-turn feature extraction
+  - Multi-method ensemble scoring
+
 Flow:
     START → router → interviewer → human_turn → update_state → router → …
-                  ↘ scorer → END   (when done==True)
+                  ↘ scorer → END   (when turn_count >= max_turns)
 
 The human_turn node uses LangGraph's `interrupt()` to pause execution
 and wait for real user input, which the CLI runner resumes via
@@ -11,18 +17,19 @@ and wait for real user input, which the CLI runner resumes via
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
+
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import END, START, StateGraph
 from langgraph.types import Command, interrupt
 
 from src.agents.interviewer import interviewer_node
 from src.agents.scorer import scorer_node
+from src.extraction.features import extract_features
 from src.models.state import AssessmentState
 
-# Ordered facet sequence for the MVP (sequential exploration)
-FACET_ORDER = ["E1", "E2", "E3", "E4", "E5", "E6"]
-TURNS_PER_FACET = 2
-MAX_TURNS = len(FACET_ORDER) * TURNS_PER_FACET
+# Fixed session length — NOT adaptive (spec requirement)
+MAX_TURNS = 10
 
 
 # ── Graph nodes ───────────────────────────────────────────────────────────
@@ -46,46 +53,58 @@ def human_turn(state: AssessmentState) -> dict:
 
 
 def update_state(state: AssessmentState) -> dict:
-    """Process the user's response: update transcript, manage facet rotation."""
+    """Process the user's response: update transcript, extract features.
+
+    This node runs AFTER each human turn and BEFORE routing back.
+    It extracts linguistic features from the user's response for
+    per-turn analysis and accumulates the transcript.
+    """
     from langchain_core.messages import HumanMessage
 
     user_text: str = state.get("user_input", "")
     turn_count = state.get("turn_count", 0)
-    current_facet = state.get("current_facet", "E1")
-    explored_facets = state.get("explored_facets", [])
     transcript = state.get("transcript", "")
+    turn_records = state.get("turn_records", [])
+    turn_features_list = state.get("turn_features", [])
 
     # Accumulate transcript
     transcript += f"\n[Turn {turn_count + 1}] {user_text}"
     turn_count += 1
 
-    # Facet rotation: advance every TURNS_PER_FACET turns
-    facet_idx = FACET_ORDER.index(current_facet) if current_facet in FACET_ORDER else 0
-    turns_on_current = turn_count - facet_idx * TURNS_PER_FACET
+    # Extract linguistic features for this turn
+    features = extract_features(user_text)
+    features_dict = features.to_dict()
 
-    new_explored: list[str] = []
-    if turns_on_current >= TURNS_PER_FACET:
-        new_explored = [current_facet]
-        next_idx = facet_idx + 1
-        if next_idx < len(FACET_ORDER):
-            current_facet = FACET_ORDER[next_idx]
-        else:
-            # All facets covered
-            return {
-                "messages": [HumanMessage(content=user_text)],
-                "transcript": transcript,
-                "turn_count": turn_count,
-                "current_facet": current_facet,
-                "explored_facets": new_explored,
-                "done": True,
-            }
+    # Get the last AI message for the turn record
+    messages = state.get("messages", [])
+    last_ai_text = ""
+    for msg in reversed(messages):
+        if hasattr(msg, "type") and msg.type == "ai":
+            last_ai_text = msg.content
+            break
+
+    # Build turn record
+    turn_record = {
+        "turn_number": turn_count,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "ai_message": last_ai_text,
+        "user_message": user_text,
+        "features": features_dict,
+    }
+    turn_records = turn_records + [turn_record]
+    turn_features_list = turn_features_list + [features_dict]
+
+    # Check if we've hit max turns
+    max_turns = state.get("max_turns", MAX_TURNS)
+    done = turn_count >= max_turns
 
     return {
         "messages": [HumanMessage(content=user_text)],
         "transcript": transcript,
         "turn_count": turn_count,
-        "current_facet": current_facet,
-        "explored_facets": new_explored,
+        "turn_records": turn_records,
+        "turn_features": turn_features_list,
+        "done": done,
     }
 
 

@@ -109,6 +109,25 @@ def get_linguistic_features(facet_code: str) -> list[dict]:
         return _local(facet_code)
 
 
+def get_all_probes() -> list[dict]:
+    """Return ALL probes as a flat list (for simplified probe selection)."""
+    if _check_neo4j():
+        # Flatten all facets' probes
+        from src.graph.neo4j_client import get_driver, get_facets_for_trait as _neo_facets
+        from src.graph.neo4j_client import get_probes_for_facet as _neo_probes
+
+        with get_driver() as d:
+            facets = _neo_facets(d)
+            all_probes = []
+            for f in facets:
+                all_probes.extend(_neo_probes(d, f["code"]))
+            return all_probes
+    else:
+        from src.graph.local_graph import get_all_probes as _local
+
+        return _local()
+
+
 def get_all_data_for_scoring(trait_name: str = "Extraversion") -> dict:
     if _check_neo4j():
         from src.graph.neo4j_client import get_driver, get_all_data_for_scoring as _neo

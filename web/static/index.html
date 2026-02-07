@@ -1,0 +1,680 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Psychometricist</title>
+  <style>
+    :root {
+      --bg: #0f0f13;
+      --surface: #1a1a24;
+      --surface2: #232333;
+      --border: #2a2a3d;
+      --text: #e4e4ef;
+      --text-muted: #8888a4;
+      --accent: #7c6ff7;
+      --accent-light: #9d93fa;
+      --ai-bg: #1e1e30;
+      --user-bg: #2d2563;
+      --success: #4ade80;
+      --score-bar: #7c6ff7;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Header ───────────────────────────────── */
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 16px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .logo-icon {
+      width: 36px;
+      height: 36px;
+      background: var(--accent);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+    }
+
+    .logo-text h1 {
+      font-size: 16px;
+      font-weight: 600;
+      letter-spacing: -0.3px;
+    }
+
+    .logo-text span {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .progress-info {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .turn-counter {
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    .progress-bar-wrap {
+      width: 120px;
+      height: 4px;
+      background: var(--border);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+
+    .progress-bar-fill {
+      height: 100%;
+      background: var(--accent);
+      border-radius: 2px;
+      transition: width 0.5s ease;
+      width: 0%;
+    }
+
+    /* ── Chat area ────────────────────────────── */
+    .chat-container {
+      flex: 1;
+      overflow-y: auto;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .message {
+      max-width: 680px;
+      display: flex;
+      gap: 12px;
+      animation: fadeIn 0.3s ease;
+    }
+
+    .message.ai { align-self: flex-start; }
+    .message.user { align-self: flex-end; flex-direction: row-reverse; }
+
+    .avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      flex-shrink: 0;
+    }
+
+    .ai .avatar { background: var(--accent); }
+    .user .avatar { background: var(--user-bg); border: 1px solid var(--border); }
+
+    .bubble {
+      padding: 12px 16px;
+      border-radius: 16px;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    .ai .bubble {
+      background: var(--ai-bg);
+      border: 1px solid var(--border);
+      border-bottom-left-radius: 4px;
+    }
+
+    .user .bubble {
+      background: var(--user-bg);
+      border-bottom-right-radius: 4px;
+    }
+
+    /* ── Typing indicator ─────────────────────── */
+    .typing {
+      display: flex;
+      gap: 4px;
+      padding: 4px 0;
+    }
+
+    .typing span {
+      width: 7px;
+      height: 7px;
+      background: var(--text-muted);
+      border-radius: 50%;
+      animation: bounce 1.4s infinite ease-in-out;
+    }
+
+    .typing span:nth-child(2) { animation-delay: 0.2s; }
+    .typing span:nth-child(3) { animation-delay: 0.4s; }
+
+    @keyframes bounce {
+      0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
+      40% { transform: scale(1); opacity: 1; }
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ── Input area ───────────────────────────── */
+    .input-area {
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      padding: 16px 24px;
+      flex-shrink: 0;
+    }
+
+    .input-wrap {
+      max-width: 720px;
+      margin: 0 auto;
+      display: flex;
+      gap: 12px;
+      align-items: flex-end;
+    }
+
+    .input-wrap textarea {
+      flex: 1;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px 16px;
+      font-size: 14px;
+      color: var(--text);
+      resize: none;
+      font-family: inherit;
+      line-height: 1.5;
+      max-height: 120px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .input-wrap textarea:focus {
+      border-color: var(--accent);
+    }
+
+    .input-wrap textarea::placeholder {
+      color: var(--text-muted);
+    }
+
+    .send-btn {
+      width: 44px;
+      height: 44px;
+      background: var(--accent);
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.2s, transform 0.1s;
+    }
+
+    .send-btn:hover { background: var(--accent-light); }
+    .send-btn:active { transform: scale(0.95); }
+    .send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .send-btn svg {
+      width: 20px;
+      height: 20px;
+      fill: white;
+    }
+
+    /* ── Welcome screen ───────────────────────── */
+    .welcome {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 40px;
+    }
+
+    .welcome-card {
+      max-width: 440px;
+    }
+
+    .welcome-icon {
+      width: 64px;
+      height: 64px;
+      background: var(--accent);
+      border-radius: 16px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 28px;
+      margin-bottom: 20px;
+    }
+
+    .welcome-card h2 {
+      font-size: 22px;
+      font-weight: 600;
+      margin-bottom: 12px;
+    }
+
+    .welcome-card p {
+      font-size: 14px;
+      color: var(--text-muted);
+      line-height: 1.7;
+      margin-bottom: 24px;
+    }
+
+    .start-btn {
+      background: var(--accent);
+      color: white;
+      border: none;
+      padding: 12px 32px;
+      border-radius: 10px;
+      font-size: 15px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.1s;
+    }
+
+    .start-btn:hover { background: var(--accent-light); }
+    .start-btn:active { transform: scale(0.97); }
+    .start-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* ── Results card ─────────────────────────── */
+    .results {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 24px;
+      margin-top: 8px;
+      max-width: 560px;
+      animation: fadeIn 0.5s ease;
+    }
+
+    .results h3 {
+      font-size: 16px;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .facet-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .facet-label {
+      font-size: 13px;
+      width: 140px;
+      flex-shrink: 0;
+      color: var(--text-muted);
+    }
+
+    .facet-bar-wrap {
+      flex: 1;
+      height: 8px;
+      background: var(--border);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .facet-bar-fill {
+      height: 100%;
+      background: var(--score-bar);
+      border-radius: 4px;
+      transition: width 0.8s ease;
+    }
+
+    .facet-score {
+      font-size: 13px;
+      font-weight: 600;
+      width: 36px;
+      text-align: right;
+    }
+
+    .overall-row {
+      margin-top: 16px;
+      padding-top: 16px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .method-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 4px;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px;
+    }
+
+    .method-icon { width: 20px; text-align: center; }
+    .method-name { flex: 1; text-transform: capitalize; }
+    .method-score { width: 50px; text-align: right; font-weight: 600; }
+    .method-cls { width: 60px; text-align: center; color: var(--accent-light); }
+    .method-conf { width: 50px; text-align: right; color: var(--text-muted); }
+
+    .overall-score {
+      font-size: 28px;
+      font-weight: 700;
+      color: var(--accent-light);
+    }
+
+    .classification-badge {
+      background: var(--accent);
+      color: white;
+      padding: 4px 14px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .evidence-text {
+      font-size: 12px;
+      color: var(--text-muted);
+      font-style: italic;
+      margin-top: 2px;
+    }
+
+    /* ── Responsive ───────────────────────────── */
+    @media (max-width: 600px) {
+      header { padding: 12px 16px; }
+      .chat-container { padding: 16px; }
+      .input-area { padding: 12px 16px; }
+      .message { max-width: 100%; }
+      .results { padding: 16px; }
+      .facet-label { width: 100px; font-size: 12px; }
+    }
+
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <header>
+    <div class="logo">
+      <div class="logo-icon">🧠</div>
+      <div class="logo-text">
+        <h1>AI Psychometricist</h1>
+        <span>Extraversion Assessment</span>
+      </div>
+    </div>
+    <div class="progress-info hidden" id="progressInfo">
+      <span class="turn-counter" id="turnCounter">Turn 0 / 12</span>
+      <div class="progress-bar-wrap">
+        <div class="progress-bar-fill" id="progressBar"></div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Welcome screen -->
+  <div class="welcome" id="welcomeScreen">
+    <div class="welcome-card">
+      <div class="welcome-icon">🎙️</div>
+      <h2>Personality Through Conversation</h2>
+      <p>
+        Have a natural, open-ended conversation with our AI interviewer.
+        There are no right or wrong answers — just be yourself.<br><br>
+        The interview takes about 5–10 minutes and covers different aspects
+        of how you interact with the world.
+      </p>
+      <button class="start-btn" id="startBtn" onclick="startInterview()">
+        Start Conversation
+      </button>
+    </div>
+  </div>
+
+  <!-- Chat area -->
+  <div class="chat-container hidden" id="chatContainer"></div>
+
+  <!-- Input area -->
+  <div class="input-area hidden" id="inputArea">
+    <div class="input-wrap">
+      <textarea
+        id="userInput"
+        rows="1"
+        placeholder="Type your response…"
+        onkeydown="handleKey(event)"
+        oninput="autoResize(this)"
+      ></textarea>
+      <button class="send-btn" id="sendBtn" onclick="sendMessage()">
+        <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <script>
+    let sessionId = null;
+    let isWaiting = false;
+
+    const chatContainer = document.getElementById('chatContainer');
+    const welcomeScreen = document.getElementById('welcomeScreen');
+    const inputArea = document.getElementById('inputArea');
+    const progressInfo = document.getElementById('progressInfo');
+    const userInput = document.getElementById('userInput');
+    const sendBtn = document.getElementById('sendBtn');
+    const turnCounter = document.getElementById('turnCounter');
+    const progressBar = document.getElementById('progressBar');
+
+    function addMessage(text, type) {
+      const div = document.createElement('div');
+      div.className = `message ${type}`;
+      const avatar = type === 'ai' ? '🎙️' : '👤';
+      div.innerHTML = `
+        <div class="avatar">${avatar}</div>
+        <div class="bubble">${escapeHtml(text)}</div>
+      `;
+      chatContainer.appendChild(div);
+      chatContainer.scrollTop = chatContainer.scrollHeight;
+    }
+
+    function addTyping() {
+      const div = document.createElement('div');
+      div.className = 'message ai';
+      div.id = 'typingIndicator';
+      div.innerHTML = `
+        <div class="avatar">🎙️</div>
+        <div class="bubble">
+          <div class="typing"><span></span><span></span><span></span></div>
+        </div>
+      `;
+      chatContainer.appendChild(div);
+      chatContainer.scrollTop = chatContainer.scrollHeight;
+    }
+
+    function removeTyping() {
+      const el = document.getElementById('typingIndicator');
+      if (el) el.remove();
+    }
+
+    function updateProgress(turn, maxTurns) {
+      turnCounter.textContent = `Turn ${turn} / ${maxTurns}`;
+      progressBar.style.width = `${(turn / maxTurns) * 100}%`;
+    }
+
+    function showResults(data) {
+      // ── Multi-method scoring breakdown ──
+      let methodRows = '';
+      const sr = data.scoring_results;
+      if (sr && sr.individual_results) {
+        const methods = sr.individual_results;
+        for (const [name, res] of Object.entries(methods)) {
+          if (name === 'llm_facet') continue;
+          const s = typeof res.score === 'number' ? res.score.toFixed(2) : '—';
+          const c = res.classification || '—';
+          const conf = typeof res.confidence === 'number' ? (res.confidence * 100).toFixed(0) + '%' : '—';
+          const icon = res.error ? '⚠️' : '✓';
+          methodRows += `
+            <div class="method-row">
+              <span class="method-icon">${icon}</span>
+              <span class="method-name">${name.replace(/_/g, ' ')}</span>
+              <span class="method-score">${s}</span>
+              <span class="method-cls">${c}</span>
+              <span class="method-conf">${conf}</span>
+            </div>`;
+        }
+      }
+
+      // ── Facet bars (secondary, from LLM facet scorer) ──
+      let facetRows = '';
+      if (data.facet_scores && data.facet_scores.length > 0) {
+        facetRows = '<h4 style="margin-top:16px;margin-bottom:8px;color:var(--text-muted);">Facet Detail (LLM)</h4>';
+        facetRows += data.facet_scores.map(fs => `
+          <div class="facet-row">
+            <span class="facet-label">${fs.facet_code} ${fs.facet_name}</span>
+            <div class="facet-bar-wrap">
+              <div class="facet-bar-fill" style="width: ${(fs.score / 5) * 100}%"></div>
+            </div>
+            <span class="facet-score">${fs.score.toFixed(1)}</span>
+          </div>
+        `).join('');
+      }
+
+      const confidencePct = data.confidence ? (data.confidence * 100).toFixed(0) + '%' : '—';
+      const agree = sr && sr.methods_agree ? 'Yes' : 'No';
+
+      const resultsDiv = document.createElement('div');
+      resultsDiv.className = 'results';
+      resultsDiv.innerHTML = `
+        <h3>📊 Multi-Method Assessment Results</h3>
+        <div class="overall-row">
+          <div>
+            <div style="font-size: 12px; color: var(--text-muted);">Ensemble Score</div>
+            <div class="overall-score">${data.overall_score.toFixed(2)} / 5.0</div>
+          </div>
+          <span class="classification-badge">${data.classification}</span>
+        </div>
+        <div style="display:flex;gap:24px;margin:8px 0 16px;font-size:13px;color:var(--text-muted);">
+          <span>Confidence: <strong style="color:var(--text)">${confidencePct}</strong></span>
+          <span>Methods agree: <strong style="color:var(--text)">${agree}</strong></span>
+        </div>
+        <h4 style="margin-bottom:8px;color:var(--text-muted);">Per-Method Scores</h4>
+        <div class="method-header" style="display:flex;gap:8px;font-size:11px;color:var(--text-muted);padding:0 4px;margin-bottom:4px;">
+          <span style="width:20px"></span>
+          <span style="flex:1">Method</span>
+          <span style="width:50px;text-align:right">Score</span>
+          <span style="width:60px;text-align:center">Class</span>
+          <span style="width:50px;text-align:right">Conf</span>
+        </div>
+        ${methodRows}
+        ${facetRows}
+      `;
+      chatContainer.appendChild(resultsDiv);
+      chatContainer.scrollTop = chatContainer.scrollHeight;
+
+      // Hide input, update progress
+      inputArea.classList.add('hidden');
+      progressBar.style.width = '100%';
+      turnCounter.textContent = 'Complete';
+    }
+
+    function escapeHtml(str) {
+      const div = document.createElement('div');
+      div.textContent = str;
+      return div.innerHTML;
+    }
+
+    function setWaiting(val) {
+      isWaiting = val;
+      sendBtn.disabled = val;
+      userInput.disabled = val;
+      if (!val) userInput.focus();
+    }
+
+    function autoResize(el) {
+      el.style.height = 'auto';
+      el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+    }
+
+    function handleKey(e) {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
+      }
+    }
+
+    async function startInterview() {
+      const startBtn = document.getElementById('startBtn');
+      startBtn.disabled = true;
+      startBtn.textContent = 'Starting…';
+
+      try {
+        const res = await fetch('/api/start', { method: 'POST' });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+
+        sessionId = data.session_id;
+
+        welcomeScreen.classList.add('hidden');
+        chatContainer.classList.remove('hidden');
+        inputArea.classList.remove('hidden');
+        progressInfo.classList.remove('hidden');
+
+        addMessage(data.ai_message, 'ai');
+        updateProgress(data.turn, data.max_turns);
+        userInput.focus();
+      } catch (err) {
+        alert('Failed to start: ' + err.message);
+        startBtn.disabled = false;
+        startBtn.textContent = 'Start Conversation';
+      }
+    }
+
+    async function sendMessage() {
+      const text = userInput.value.trim();
+      if (!text || isWaiting) return;
+
+      addMessage(text, 'user');
+      userInput.value = '';
+      userInput.style.height = 'auto';
+      setWaiting(true);
+      addTyping();
+
+      try {
+        const res = await fetch('/api/respond', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ session_id: sessionId, message: text }),
+        });
+
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+
+        removeTyping();
+        addMessage(data.ai_message, 'ai');
+        updateProgress(data.turn, data.max_turns);
+
+        if (data.status === 'complete') {
+          showResults(data);
+        }
+      } catch (err) {
+        removeTyping();
+        addMessage('⚠️ Something went wrong. Please try again.', 'ai');
+      } finally {
+        setWaiting(false);
+      }
+    }
+  </script>
+</body>
+</html>

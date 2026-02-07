@@ -1,103 +1,47 @@
-"""Scorer agent — evaluates the interview transcript and produces psychometric scores.
+"""Scorer agent — runs multi-method ensemble scoring on the interview transcript.
 
-The Scorer receives the accumulated transcript (user messages only) and
-uses GPT to rate the user on each Extraversion facet, then computes an
-overall domain score and a classification (Low / Medium / High).
+Revised design (aligned with project spec):
+  - Primary output: domain-level classification (Low/Medium/High)
+  - Runs THREE scoring methods: feature-based, embedding, LLM
+  - Combines via confidence-weighted ensemble
+  - Saves structured session log
+  - Per-facet LLM scoring kept as optional secondary output
+
+Scientific framing: by comparing scoring methods we assess convergent
+validity BETWEEN methods (a core research question).
 """
 
 from __future__ import annotations
 
-import json
+from langchain_core.messages import AIMessage
 
-from langchain_core.messages import AIMessage, SystemMessage, HumanMessage
-from langchain_openai import ChatOpenAI
-
-from src.graph.graph_client import get_all_data_for_scoring
-from src.models.state import AssessmentState, FacetScore
-
-SCORER_SYSTEM_PROMPT = """\
-You are an expert psychometric scorer. You will receive:
-1. A description of the Extraversion trait and its six facets.
-2. The full transcript of a conversational interview (user responses only).
-
-Your task: rate the user on EACH of the six Extraversion facets on a
-1–5 scale, where:
-  1 = Very Low (strong introversion signals)
-  2 = Low
-  3 = Average / Neutral
-  4 = High
-  5 = Very High (strong extraversion signals)
-
-For each facet, cite specific evidence from the transcript.
-
-FACET DEFINITIONS:
-{facet_definitions}
-
-SCORING GUIDELINES:
-- Base your ratings on behavioral evidence in the transcript, not on
-  what the user explicitly claims about themselves.
-- Consider: enthusiasm, social references, assertive language,
-  activity descriptions, excitement-seeking anecdotes, positive emotion
-  expressions.
-- Absence of evidence for a facet should default to 3 (neutral), NOT 1.
-- Be calibrated: most people score 2.5–3.5; reserve 1 and 5 for
-  extreme and clear evidence.
-
-RESPOND WITH VALID JSON ONLY — no markdown, no commentary:
-{{
-  "facet_scores": [
-    {{"facet_code": "E1", "facet_name": "Friendliness", "score": 3.5, "evidence": "..."}},
-    ...
-  ]
-}}
-"""
-
-
-def _get_llm() -> ChatOpenAI:
-    return ChatOpenAI(model="gpt-5.2", temperature=0.0)
-
-
-def _build_facet_definitions(scoring_data: dict) -> str:
-    """Format facet info for the system prompt."""
-    lines = []
-    for f in scoring_data["facets"]:
-        items_text = "; ".join(
-            f'"{it["text"]}" ({"+" if it["keying"] == "+" else "−"})'
-            for it in f["items"]
-        )
-        features_text = ", ".join(
-            lf["description"] for lf in f["linguistic_features"]
-        )
-        lines.append(
-            f"• {f['code']} {f['name']}: {f['description']}\n"
-            f"  IPIP items: {items_text or 'N/A'}\n"
-            f"  Linguistic markers: {features_text or 'N/A'}"
-        )
-    return "\n".join(lines)
-
-
-def _classify(score: float) -> str:
-    if score <= 2.3:
-        return "Low"
-    elif score <= 3.6:
-        return "Medium"
-    else:
-        return "High"
+from src.extraction.features import extract_features
+from src.models.state import AssessmentState
+from src.scoring.ensemble import score_ensemble, format_results
+from src.session.logger import SessionLogger
 
 
 def scorer_node(state: AssessmentState) -> dict:
-    """LangGraph node: score the transcript and produce final results.
+    """LangGraph node: run ensemble scoring and produce final results.
 
-    Returns state updates with facet_scores, overall_score, classification.
+    Steps:
+      1. Extract features from full transcript
+      2. Run all scoring methods (feature, embedding, LLM)
+      3. Combine into ensemble score
+      4. Save session log
+      5. Return state updates
+
+    Returns state updates with scoring_results, overall_score,
+    classification, confidence, and summary message.
     """
     transcript = state.get("transcript", "")
 
     if not transcript.strip():
-        # Edge case: nothing to score
         return {
-            "facet_scores": [],
+            "scoring_results": {},
             "overall_score": 3.0,
             "classification": "Medium",
+            "confidence": 0.0,
             "messages": [
                 AIMessage(
                     content="I wasn't able to gather enough information to "
@@ -106,74 +50,53 @@ def scorer_node(state: AssessmentState) -> dict:
             ],
         }
 
-    # ── Fetch graph context (Neo4j or local JSON fallback) ───────────
-    scoring_data = get_all_data_for_scoring()
+    # ── 1. Extract features from full transcript ──────────────────────
+    features = extract_features(transcript)
 
-    facet_defs = _build_facet_definitions(scoring_data)
-
-    # ── Build prompt ──────────────────────────────────────────────────
-    system = SystemMessage(
-        content=SCORER_SYSTEM_PROMPT.format(facet_definitions=facet_defs)
+    # ── 2. Run ensemble scoring ───────────────────────────────────────
+    results = score_ensemble(
+        transcript=transcript,
+        features=features,
+        run_llm=True,
+        run_embedding=True,
+        run_features=True,
+        run_facet_level=True,  # secondary: per-facet for analysis
     )
-    user_msg = HumanMessage(
-        content=f"INTERVIEW TRANSCRIPT (user responses only):\n\n{transcript}"
-    )
 
-    # ── Call LLM ──────────────────────────────────────────────────────
-    llm = _get_llm()
-    response: AIMessage = llm.invoke([system, user_msg])
+    # ── 3. Format results for display ─────────────────────────────────
+    summary_text = format_results(results)
 
-    # ── Parse response ────────────────────────────────────────────────
+    # ── 4. Extract facet scores if available ──────────────────────────
+    facet_scores = []
+    facet_data = results.get("individual_results", {}).get("llm_facet")
+    if facet_data and facet_data.get("facet_scores"):
+        facet_scores = facet_data["facet_scores"]
+
+    # ── 5. Save session log ───────────────────────────────────────────
+    session_id = state.get("session_id", "unknown")
     try:
-        raw = response.content.strip()
-        # Strip markdown code fences if present
-        if raw.startswith("```"):
-            raw = raw.split("\n", 1)[1].rsplit("```", 1)[0]
-        parsed = json.loads(raw)
-        facet_scores: list[FacetScore] = parsed["facet_scores"]
-    except (json.JSONDecodeError, KeyError):
-        # Fallback: could not parse — return neutral scores
-        facet_scores = [
-            {
-                "facet_code": f"E{i}",
-                "facet_name": name,
-                "score": 3.0,
-                "evidence": "Scoring parse error — defaulting to neutral.",
-            }
-            for i, name in enumerate(
-                [
-                    "Friendliness",
-                    "Gregariousness",
-                    "Assertiveness",
-                    "Activity Level",
-                    "Excitement-Seeking",
-                    "Cheerfulness",
-                ],
-                start=1,
-            )
-        ]
+        logger = SessionLogger(session_id=session_id)
 
-    # ── Compute aggregate ─────────────────────────────────────────────
-    scores_numeric = [fs["score"] for fs in facet_scores]
-    overall = sum(scores_numeric) / len(scores_numeric) if scores_numeric else 3.0
-    classification = _classify(overall)
+        # Reconstruct turns from turn_records
+        for record in state.get("turn_records", []):
+            logger.turns.append(record)
 
-    # ── Build summary message ─────────────────────────────────────────
-    summary_lines = ["## Extraversion Assessment Results\n"]
-    for fs in facet_scores:
-        bar = "█" * int(fs["score"]) + "░" * (5 - int(fs["score"]))
-        summary_lines.append(
-            f"**{fs['facet_code']} {fs['facet_name']}**: "
-            f"{fs['score']:.1f}/5.0  {bar}\n"
-            f"  _{fs['evidence']}_\n"
-        )
-    summary_lines.append(f"\n**Overall Extraversion**: {overall:.2f}/5.0")
-    summary_lines.append(f"**Classification**: {classification}")
-    summary_text = "\n".join(summary_lines)
+        # Attach full-transcript features
+        logger.set_metadata("transcript_features", features.to_dict())
+        logger.set_metadata("transcript_word_count", features.word_count)
+        logger.log_scoring(results)
 
+        log_path = logger.save()
+        summary_text += f"\n\n📄 Session log saved → {log_path.name}"
+    except Exception as e:
+        summary_text += f"\n\n⚠ Session log failed: {e}"
+
+    # ── 6. Return state updates ───────────────────────────────────────
     return {
+        "scoring_results": results,
+        "overall_score": results.get("ensemble_score", 3.0),
+        "classification": results.get("ensemble_classification", "Medium"),
+        "confidence": results.get("ensemble_confidence", 0.0),
         "facet_scores": facet_scores,
-        "overall_score": round(overall, 2),
-        "classification": classification,
         "messages": [AIMessage(content=summary_text)],
     }

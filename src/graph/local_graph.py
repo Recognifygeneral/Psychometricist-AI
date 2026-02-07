@@ -69,6 +69,16 @@ def get_linguistic_features(facet_code: str) -> list[dict]:
     ]
 
 
+def get_all_probes() -> list[dict]:
+    """Return ALL probes as a flat list (no facet filtering)."""
+    data = _load()
+    return [
+        {"id": p["id"], "text": p["text"], "target_behavior": p["target_behavior"],
+         "facet": p["facet"]}
+        for p in data["probes"]
+    ]
+
+
 def get_all_data_for_scoring(trait_name: str = "Extraversion") -> dict:
     facets = get_facets_for_trait(trait_name)
     result = {"trait": trait_name, "facets": []}
