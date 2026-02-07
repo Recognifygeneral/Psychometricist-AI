@@ -139,6 +139,6 @@ def serve_ui():
 if __name__ == "__main__":
     import uvicorn
     print("\n🚀 Starting AI Psychometricist web interface...")
-    print("📍 Open your browser to: http://localhost:8000")
+    print("📍 Open your browser to: http://localhost:8080")
     print("⏹  Press Ctrl+C to stop\n")
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=8080)
