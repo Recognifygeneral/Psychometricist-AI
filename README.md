@@ -97,8 +97,22 @@ python -m src.main
 
 # Web mode (browser-based chat UI)
 python -m web.app
-# → Open http://localhost:8000
+# → Open http://localhost:8080
 ```
+
+## Deploy to Railway
+
+[![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/new)
+
+Quick cloud deployment:
+
+1. Push this repo to your GitHub
+2. Go to [railway.app/new](https://railway.app/new) → Deploy from GitHub
+3. Select your repository
+4. Add environment variable: `OPENAI_API_KEY=sk-...`
+5. Deploy → Railway provides a public URL
+
+See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed instructions, Neo4j setup, and troubleshooting.
 
 The system conducts a 10-turn interview and displays multi-method scoring results.
 
