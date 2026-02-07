@@ -1,0 +1,30 @@
+# Railway Deployment Ignore
+# Similar to .gitignore but for Railway deployments
+
+# Tests
+tests/
+*.pyc
+__pycache__/
+.pytest_cache/
+
+# Development
+.venv/
+venv/
+.env.example
+.vscode/
+
+# Data (sessions will be ephemeral on Railway)
+data/sessions/*
+!data/sessions/.gitkeep
+
+# Neo4j (optional, use Railway's Neo4j plugin if needed)
+# For production, either use Railway's Neo4j add-on or the local JSON fallback
+
+# Documentation
+ROADMAP.md
+*.md
+!README.md
+
+# Git
+.git/
+.gitignore

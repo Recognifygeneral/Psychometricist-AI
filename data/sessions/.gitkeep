@@ -1,0 +1,2 @@
+# This file ensures the sessions directory exists in git
+# Actual session files are gitignored
