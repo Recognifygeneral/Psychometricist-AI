@@ -1,13 +1,9 @@
-"""FastAPI backend for the psychometric interview web interface.
-
-Endpoints:
-    POST /api/start       → start a new interview session, returns first AI message
-    POST /api/respond     → send user message, returns next AI message
-    GET  /                → serve the chat UI
-"""
+"""FastAPI backend for the psychometric interview web interface."""
 
 from __future__ import annotations
 
+import logging
+import os
 import uuid
 from pathlib import Path
 from typing import Any
@@ -15,38 +11,34 @@ from typing import Any
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse
-from fastapi.staticfiles import StaticFiles
 from langgraph.types import Command
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+
+from src.models.initial_state import new_assessment_state
+from src.workflow import MAX_TURNS, build_graph
 
 load_dotenv()
 
-# Sanitize env vars — Railway sometimes adds trailing newlines when pasting
-import os
+# Railway sometimes stores env values with trailing whitespace after copy/paste.
 for key in ("OPENAI_API_KEY", "NEO4J_URI", "NEO4J_USERNAME", "NEO4J_PASSWORD"):
-    val = os.environ.get(key)
-    if val:
-        os.environ[key] = val.strip()
+    value = os.environ.get(key)
+    if value:
+        os.environ[key] = value.strip()
 
-import sys
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-
-from src.workflow import build_graph, MAX_TURNS
+logger = logging.getLogger(__name__)
 
 app = FastAPI(title="AI Psychometricist", version="0.2.0")
-
-# Build the graph once at startup
 graph = build_graph()
-
-# ── Request / Response models ─────────────────────────────────────────────
-
-
-class StartRequest(BaseModel):
-    pass
+MAX_MESSAGE_CHARS = 4000
 
 
 class RespondRequest(BaseModel):
-    session_id: str
+    session_id: str = Field(
+        ...,
+        min_length=1,
+        max_length=64,
+        pattern=r"^[A-Za-z0-9_-]+$",
+    )
     message: str
 
 
@@ -55,8 +47,7 @@ class MessageResponse(BaseModel):
     ai_message: str
     turn: int
     max_turns: int
-    status: str  # "in-progress" | "complete"
-    # Only present when status == "complete"
+    status: str
     overall_score: float | None = None
     classification: str | None = None
     confidence: float | None = None
@@ -64,11 +55,8 @@ class MessageResponse(BaseModel):
     facet_scores: list[dict] | None = None
 
 
-# ── Helpers ───────────────────────────────────────────────────────────────
-
-
-def _extract_response(result: dict, session_id: str) -> MessageResponse:
-    """Build a MessageResponse from the graph state."""
+def _extract_response(result: dict[str, Any], session_id: str) -> MessageResponse:
+    """Build API response from graph state."""
     messages = result.get("messages", [])
     last_ai = messages[-1].content if messages else ""
 
@@ -89,66 +77,56 @@ def _extract_response(result: dict, session_id: str) -> MessageResponse:
     )
 
 
-# ── Endpoints ─────────────────────────────────────────────────────────────
-
-
 @app.post("/api/start", response_model=MessageResponse)
-def start_session():
+def start_session() -> MessageResponse:
     """Start a new interview session."""
     session_id = str(uuid.uuid4())[:8]
     config = {"configurable": {"thread_id": session_id}}
-
-    initial_state = {
-        "session_id": session_id,
-        "probes_used": [],
-        "transcript": "",
-        "turn_records": [],
-        "turn_features": [],
-        "scoring_results": {},
-        "overall_score": 0.0,
-        "classification": "",
-        "confidence": 0.0,
-        "facet_scores": [],
-        "turn_count": 0,
-        "max_turns": MAX_TURNS,
-        "done": False,
-    }
+    initial_state = new_assessment_state(session_id=session_id, max_turns=MAX_TURNS)
 
     result = graph.invoke(initial_state, config)
     return _extract_response(result, session_id)
 
 
 @app.post("/api/respond", response_model=MessageResponse)
-def respond(req: RespondRequest):
-    """Send a user response and get the next interviewer question (or final scores)."""
+def respond(req: RespondRequest) -> MessageResponse:
+    """Send a user response and return the next state."""
+    user_message = req.message.strip()
+    if not user_message:
+        raise HTTPException(status_code=400, detail="Message cannot be empty.")
+    if len(user_message) > MAX_MESSAGE_CHARS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Message too long. Maximum length is {MAX_MESSAGE_CHARS} characters.",
+        )
+
     config = {"configurable": {"thread_id": req.session_id}}
 
     try:
-        result = graph.invoke(Command(resume=req.message), config)
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        result = graph.invoke(Command(resume=user_message), config)
+    except Exception:
+        logger.exception("Failed to resume session %s", req.session_id)
+        raise HTTPException(
+            status_code=400,
+            detail="Unable to continue this session. Start a new session and try again.",
+        )
 
     return _extract_response(result, req.session_id)
 
-
-# ── Serve static frontend ────────────────────────────────────────────────
 
 STATIC_DIR = Path(__file__).parent / "static"
 
 
 @app.get("/", response_class=HTMLResponse)
-def serve_ui():
+def serve_ui() -> HTMLResponse:
     """Serve the chat interface."""
     index_path = STATIC_DIR / "index.html"
     return HTMLResponse(content=index_path.read_text(encoding="utf-8"))
 
 
 if __name__ == "__main__":
-    import os
     import uvicorn
-    
+
     port = int(os.getenv("PORT", "8080"))
-    print("\n🚀 Starting AI Psychometricist web interface...")
-    print(f"📍 Open your browser to: http://localhost:{port}")
-    print("⏹  Press Ctrl+C to stop\n")
+    print(f"Starting web interface on http://localhost:{port}")
     uvicorn.run(app, host="0.0.0.0", port=port)

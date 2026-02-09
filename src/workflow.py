@@ -26,7 +26,7 @@ from langgraph.types import Command, interrupt
 from src.agents.interviewer import interviewer_node
 from src.agents.scorer import scorer_node
 from src.extraction.features import extract_features
-from src.models.state import AssessmentState
+from src.models.state import AssessmentState, TurnRecord
 
 # Fixed session length — NOT adaptive (spec requirement)
 MAX_TURNS = 10
@@ -80,11 +80,12 @@ def update_state(state: AssessmentState) -> dict:
     last_ai_text = ""
     for msg in reversed(messages):
         if hasattr(msg, "type") and msg.type == "ai":
-            last_ai_text = msg.content
+            msg_content = msg.content
+            last_ai_text = msg_content if isinstance(msg_content, str) else str(msg_content)
             break
 
     # Build turn record
-    turn_record = {
+    turn_record: TurnRecord = {
         "turn_number": turn_count,
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "ai_message": last_ai_text,

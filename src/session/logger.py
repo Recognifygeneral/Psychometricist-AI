@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Any
 
 from src.extraction.features import LinguisticFeatures
+from src.settings import LLM_MODEL_NAME
 
 SESSIONS_DIR = Path(__file__).resolve().parents[2] / "data" / "sessions"
 
@@ -51,7 +52,7 @@ class SessionLogger:
         self.metadata: dict[str, Any] = {
             "trait": "Extraversion",
             "instrument": "IPIP 50-item Big Five Markers",
-            "model": "gpt-5.2",
+            "model": LLM_MODEL_NAME,
         }
 
     def log_turn(

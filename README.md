@@ -4,7 +4,7 @@ A **scientific feasibility study** exploring whether conversational AI can relia
 
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![LangGraph](https://img.shields.io/badge/LangGraph-0.4+-green.svg)](https://langchain-ai.github.io/langgraph/)
-[![Tests](https://img.shields.io/badge/tests-46%20passing-brightgreen.svg)](tests/)
+[![Tests](https://img.shields.io/badge/tests-57%20passing-brightgreen.svg)](tests/)
 
 ## Research Question
 
@@ -142,13 +142,16 @@ Outputs per-method: Pearson r, Spearman ρ, MAE, classification agreement rate.
 ## Testing
 
 ```bash
-# Full suite (46 tests)
+# Full suite (57 tests)
 pytest tests/ -v
 
 # Individual suites
 pytest tests/test_features.py     # 27 tests — linguistic feature extraction
 pytest tests/test_scoring.py      # 18 tests — scoring modules + ensemble
 pytest tests/test_e2e_mock.py     # 1 test  — full interview loop (mocked LLM)
+pytest tests/test_evaluation.py   # self-report/session link plumbing
+pytest tests/test_web_api.py      # FastAPI endpoint validation + flow
+pytest tests/test_settings.py     # settings and threshold fallback
 python tests/test_smoke.py        # Import chain + data loading + feature scoring
 ```
 
@@ -244,7 +247,7 @@ Formula: `score = 3.0 + Σ(weight × direction × (value − baseline))`, clippe
 | Psychometric items | IPIP public domain (Goldberg 1992) |
 | Statistics | scipy, numpy (Pearson r, Spearman ρ, MAE) |
 | Web UI | FastAPI + vanilla HTML/CSS/JS |
-| Tests | pytest (46 tests) |
+| Tests | pytest (57 tests) |
 
 ## Roadmap
 
@@ -276,4 +279,4 @@ Marco @ Recognifygeneral — [GitHub](https://github.com/Recognifygeneral)
 
 ---
 
-**Status**: v0.2.0 | 46 tests passing | Multi-method scoring | Session logging | Ready for pilot
+**Status**: v0.2.0 | 57 tests passing | Multi-method scoring | Session logging | Ready for pilot

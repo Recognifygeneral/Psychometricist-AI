@@ -19,17 +19,10 @@ from pathlib import Path
 import numpy as np
 from scipy import stats
 
+from src.settings import classify_extraversion
+
 RESULTS_PATH = Path(__file__).resolve().parents[2] / "data" / "pilot_results.csv"
 SESSIONS_DIR = Path(__file__).resolve().parents[2] / "data" / "sessions"
-
-
-def _classify(score: float) -> str:
-    if score <= 2.3:
-        return "Low"
-    elif score <= 3.6:
-        return "Medium"
-    else:
-        return "High"
 
 
 def load_paired_scores() -> tuple[list[float], list[float], list[str]]:
@@ -118,8 +111,8 @@ def _compute_metrics(self_scores: list[float], ai_scores: list[float]) -> dict:
     spearman_rho, spearman_p = stats.spearmanr(sr, ai)
     mae = float(np.mean(np.abs(sr - ai)))
 
-    sr_labels = [_classify(s) for s in self_scores]
-    ai_labels = [_classify(s) for s in ai_scores]
+    sr_labels = [classify_extraversion(s) for s in self_scores]
+    ai_labels = [classify_extraversion(s) for s in ai_scores]
     agreement = sum(a == b for a, b in zip(sr_labels, ai_labels)) / n
 
     return {
@@ -204,7 +197,7 @@ def main() -> None:
 
     # Fall back to legacy CSV
     if not RESULTS_PATH.exists():
-        print(f"No results found.")
+        print("No results found.")
         print(f"  - No session logs in {SESSIONS_DIR}")
         print(f"  - No CSV at {RESULTS_PATH}")
         print("Run interviews and self-reports first.")

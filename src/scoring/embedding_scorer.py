@@ -15,10 +15,18 @@ Scientific basis:
 
 from __future__ import annotations
 
-import os
+import logging
 from typing import Any
 
 import numpy as np
+
+from src.settings import (
+    EMBEDDING_MODEL_NAME,
+    NEUTRAL_SCORE,
+    classify_extraversion,
+)
+
+logger = logging.getLogger(__name__)
 
 # ═══════════════════════════════════════════════════════════════════════════
 # REFERENCE TEXTS
@@ -134,19 +142,10 @@ def _cosine_similarity(a: np.ndarray, b: np.ndarray) -> float:
     return float(dot / norm)
 
 
-def _classify(score: float) -> str:
-    if score <= 2.3:
-        return "Low"
-    elif score <= 3.6:
-        return "Medium"
-    else:
-        return "High"
-
-
 def _get_embeddings_model():
     """Lazily import and create the OpenAI embeddings model."""
     from langchain_openai import OpenAIEmbeddings
-    return OpenAIEmbeddings(model="text-embedding-3-small")
+    return OpenAIEmbeddings(model=EMBEDDING_MODEL_NAME)
 
 
 def score_with_embeddings(
@@ -178,8 +177,8 @@ def score_with_embeddings(
     if word_count < min_words:
         return {
             "method": "embedding",
-            "score": 3.0,
-            "classification": "Medium",
+            "score": NEUTRAL_SCORE,
+            "classification": classify_extraversion(NEUTRAL_SCORE),
             "confidence": 0.0,
             "high_similarity": 0.0,
             "low_similarity": 0.0,
@@ -199,7 +198,7 @@ def score_with_embeddings(
 
         # Mean cosine similarity to each pole
         high_sim = float(np.mean([_cosine_similarity(user_emb, h) for h in high_embs]))
-        low_sim = float(np.mean([_cosine_similarity(user_emb, l) for l in low_embs]))
+        low_sim = float(np.mean([_cosine_similarity(user_emb, low_ref) for low_ref in low_embs]))
 
         # Convert relative similarity to 1–5 score
         # balance ∈ [-1, 1]: positive → closer to high-E
@@ -212,10 +211,10 @@ def score_with_embeddings(
         # Map to [1, 5] with amplification
         # Empirically, cosine similarities are often close so we amplify
         amplified = balance * 3.0  # expand the effective range
-        raw_score = 3.0 + amplified
+        raw_score = NEUTRAL_SCORE + amplified
         score = max(1.0, min(5.0, raw_score))
 
-        classification = _classify(score)
+        classification = classify_extraversion(score)
         confidence = min(1.0, abs(amplified) / 1.5)
 
         return {
@@ -229,10 +228,11 @@ def score_with_embeddings(
         }
 
     except Exception as e:
+        logger.warning("Embedding scorer failed: %s", e)
         return {
             "method": "embedding",
-            "score": 3.0,
-            "classification": "Medium",
+            "score": NEUTRAL_SCORE,
+            "classification": classify_extraversion(NEUTRAL_SCORE),
             "confidence": 0.0,
             "error": f"Embedding scorer failed: {str(e)}",
         }

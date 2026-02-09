@@ -12,6 +12,7 @@ import uuid
 from dotenv import load_dotenv
 from langgraph.types import Command
 
+from src.models.initial_state import new_assessment_state
 from src.workflow import build_graph, MAX_TURNS
 
 load_dotenv()
@@ -38,22 +39,8 @@ def main() -> None:
     session_id = str(uuid.uuid4())[:8]
     config = {"configurable": {"thread_id": session_id}}
 
-    # Initial state — simplified (no facet routing)
-    initial_state = {
-        "session_id": session_id,
-        "probes_used": [],
-        "transcript": "",
-        "turn_records": [],
-        "turn_features": [],
-        "scoring_results": {},
-        "overall_score": 0.0,
-        "classification": "",
-        "confidence": 0.0,
-        "facet_scores": [],
-        "turn_count": 0,
-        "max_turns": MAX_TURNS,
-        "done": False,
-    }
+    # Initial state — shared factory used by CLI and web entrypoints.
+    initial_state = new_assessment_state(session_id=session_id, max_turns=MAX_TURNS)
 
     # First invocation — triggers router → interviewer → human_turn (interrupt)
     result = graph.invoke(initial_state, config)

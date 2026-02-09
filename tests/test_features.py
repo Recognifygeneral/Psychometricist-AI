@@ -4,8 +4,7 @@ Validates that the feature extraction pipeline correctly identifies
 word categories, computes ratios, and handles edge cases.
 """
 
-import pytest
-from src.extraction.features import extract_features, extract_features_multi, LinguisticFeatures
+from src.extraction.features import extract_features, extract_features_multi
 
 
 class TestBasicExtraction:

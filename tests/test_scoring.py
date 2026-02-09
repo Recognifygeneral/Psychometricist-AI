@@ -5,9 +5,6 @@ the ensemble structure. Embedding and LLM scorers are tested
 with mocks since they require API keys.
 """
 
-import pytest
-from unittest.mock import patch, MagicMock
-
 from src.extraction.features import extract_features
 from src.scoring.feature_scorer import score_with_features, explain_score
 
@@ -153,6 +150,8 @@ class TestScorerIntegration:
 
     def test_feature_scorer_imports(self):
         from src.scoring.feature_scorer import score_with_features, explain_score, WEIGHTS
+        assert callable(score_with_features)
+        assert callable(explain_score)
         assert len(WEIGHTS) > 0
 
     def test_llm_scorer_imports(self):
@@ -171,5 +170,7 @@ class TestScorerIntegration:
 
     def test_session_logger_imports(self):
         from src.session.logger import SessionLogger, load_session, list_sessions
+        assert callable(load_session)
+        assert callable(list_sessions)
         logger = SessionLogger(session_id="test_001")
         assert logger.session_id == "test_001"

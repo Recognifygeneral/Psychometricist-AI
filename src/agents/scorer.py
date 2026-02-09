@@ -1,59 +1,72 @@
-"""Scorer agent — runs multi-method ensemble scoring on the interview transcript.
-
-Revised design (aligned with project spec):
-  - Primary output: domain-level classification (Low/Medium/High)
-  - Runs THREE scoring methods: feature-based, embedding, LLM
-  - Combines via confidence-weighted ensemble
-  - Saves structured session log
-  - Per-facet LLM scoring kept as optional secondary output
-
-Scientific framing: by comparing scoring methods we assess convergent
-validity BETWEEN methods (a core research question).
-"""
+"""Scorer agent that runs ensemble scoring and persists session outputs."""
 
 from __future__ import annotations
+
+import logging
+from typing import Any
 
 from langchain_core.messages import AIMessage
 
 from src.extraction.features import extract_features
 from src.models.state import AssessmentState
-from src.scoring.ensemble import score_ensemble, format_results
+from src.scoring.ensemble import format_results, score_ensemble
 from src.session.logger import SessionLogger
+from src.settings import NEUTRAL_SCORE, classify_extraversion
+
+logger = logging.getLogger(__name__)
 
 
-def scorer_node(state: AssessmentState) -> dict:
-    """LangGraph node: run ensemble scoring and produce final results.
+def _incomplete_assessment_response() -> dict[str, Any]:
+    """Return a neutral fallback payload when no transcript is available."""
+    return {
+        "scoring_results": {},
+        "overall_score": NEUTRAL_SCORE,
+        "classification": classify_extraversion(NEUTRAL_SCORE),
+        "confidence": 0.0,
+        "messages": [
+            AIMessage(
+                content="I wasn't able to gather enough information to "
+                "produce a reliable score. The assessment is incomplete."
+            )
+        ],
+    }
 
-    Steps:
-      1. Extract features from full transcript
-      2. Run all scoring methods (feature, embedding, LLM)
-      3. Combine into ensemble score
-      4. Save session log
-      5. Return state updates
 
-    Returns state updates with scoring_results, overall_score,
-    classification, confidence, and summary message.
-    """
+def _extract_facet_scores(results: dict[str, Any]) -> list[dict[str, Any]]:
+    """Extract optional facet-level details from LLM secondary output."""
+    facet_data = results.get("individual_results", {}).get("llm_facet")
+    if facet_data and facet_data.get("facet_scores"):
+        return facet_data["facet_scores"]
+    return []
+
+
+def _save_session_log(state: AssessmentState, results: dict[str, Any]) -> str:
+    """Persist session log and return a status line for the summary output."""
+    session_id = state.get("session_id", "unknown")
     transcript = state.get("transcript", "")
-
-    if not transcript.strip():
-        return {
-            "scoring_results": {},
-            "overall_score": 3.0,
-            "classification": "Medium",
-            "confidence": 0.0,
-            "messages": [
-                AIMessage(
-                    content="I wasn't able to gather enough information to "
-                    "produce a reliable score. The assessment is incomplete."
-                )
-            ],
-        }
-
-    # ── 1. Extract features from full transcript ──────────────────────
     features = extract_features(transcript)
 
-    # ── 2. Run ensemble scoring ───────────────────────────────────────
+    try:
+        session_logger = SessionLogger(session_id=session_id)
+        for record in state.get("turn_records", []):
+            session_logger.turns.append(dict(record))
+        session_logger.set_metadata("transcript_features", features.to_dict())
+        session_logger.set_metadata("transcript_word_count", features.word_count)
+        session_logger.log_scoring(results)
+        log_path = session_logger.save()
+        return f"Session log saved -> {log_path.name}"
+    except Exception as e:
+        logger.warning("Session log failed for session %s: %s", session_id, e)
+        return f"Session log failed: {e}"
+
+
+def scorer_node(state: AssessmentState) -> dict[str, Any]:
+    """LangGraph node: run ensemble scoring, save session output, and respond."""
+    transcript = state.get("transcript", "")
+    if not transcript.strip():
+        return _incomplete_assessment_response()
+
+    features = extract_features(transcript)
     results = score_ensemble(
         transcript=transcript,
         features=features,
@@ -62,41 +75,17 @@ def scorer_node(state: AssessmentState) -> dict:
         run_features=True,
         run_facet_level=True,  # secondary: per-facet for analysis
     )
-
-    # ── 3. Format results for display ─────────────────────────────────
     summary_text = format_results(results)
+    summary_text += f"\n\n{_save_session_log(state, results)}"
 
-    # ── 4. Extract facet scores if available ──────────────────────────
-    facet_scores = []
-    facet_data = results.get("individual_results", {}).get("llm_facet")
-    if facet_data and facet_data.get("facet_scores"):
-        facet_scores = facet_data["facet_scores"]
-
-    # ── 5. Save session log ───────────────────────────────────────────
-    session_id = state.get("session_id", "unknown")
-    try:
-        logger = SessionLogger(session_id=session_id)
-
-        # Reconstruct turns from turn_records
-        for record in state.get("turn_records", []):
-            logger.turns.append(record)
-
-        # Attach full-transcript features
-        logger.set_metadata("transcript_features", features.to_dict())
-        logger.set_metadata("transcript_word_count", features.word_count)
-        logger.log_scoring(results)
-
-        log_path = logger.save()
-        summary_text += f"\n\n📄 Session log saved → {log_path.name}"
-    except Exception as e:
-        summary_text += f"\n\n⚠ Session log failed: {e}"
-
-    # ── 6. Return state updates ───────────────────────────────────────
     return {
         "scoring_results": results,
-        "overall_score": results.get("ensemble_score", 3.0),
-        "classification": results.get("ensemble_classification", "Medium"),
+        "overall_score": results.get("ensemble_score", NEUTRAL_SCORE),
+        "classification": results.get(
+            "ensemble_classification",
+            classify_extraversion(NEUTRAL_SCORE),
+        ),
         "confidence": results.get("ensemble_confidence", 0.0),
-        "facet_scores": facet_scores,
+        "facet_scores": _extract_facet_scores(results),
         "messages": [AIMessage(content=summary_text)],
     }

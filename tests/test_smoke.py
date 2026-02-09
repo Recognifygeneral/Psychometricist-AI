@@ -80,7 +80,13 @@ print(f"Graph compiled: {type(graph).__name__}")
 
 # 11. Session logger
 logger = SessionLogger("smoke-test")
-logger.log_turn(1, "How are you?", "I'm great, love people!", {"word_count": 5})
+logger.log_turn(
+    1,
+    "How are you?",
+    "I'm great, love people!",
+    probe_id="smoke-probe",
+    features=extract_features("I'm great, love people!"),
+)
 print(f"Session logger: {len(logger.turns)} turns logged")
 
 print("\n✓ All smoke tests passed!")

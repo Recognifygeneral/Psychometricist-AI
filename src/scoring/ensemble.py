@@ -23,20 +23,13 @@ from src.extraction.features import LinguisticFeatures, extract_features
 from src.scoring.feature_scorer import score_with_features
 from src.scoring.embedding_scorer import score_with_embeddings
 from src.scoring.llm_scorer import score_domain_level, score_facet_level
+from src.settings import NEUTRAL_SCORE, classify_extraversion
 
-
-def _classify(score: float) -> str:
-    if score <= 2.3:
-        return "Low"
-    elif score <= 3.6:
-        return "Medium"
-    else:
-        return "High"
 
 
 def _majority_vote(classifications: list[str]) -> str:
     """Return the most common classification (ties → "Medium")."""
-    counts = {}
+    counts: dict[str, int] = {}
     for c in classifications:
         counts[c] = counts.get(c, 0) + 1
     if not counts:
@@ -135,8 +128,8 @@ def score_ensemble(
     # ── Fusion ────────────────────────────────────────────────────────
     if not scores:
         return {
-            "ensemble_score": 3.0,
-            "ensemble_classification": "Medium",
+            "ensemble_score": NEUTRAL_SCORE,
+            "ensemble_classification": classify_extraversion(NEUTRAL_SCORE),
             "ensemble_confidence": 0.0,
             "fusion_method": "none",
             "individual_results": individual,
@@ -154,7 +147,7 @@ def score_ensemble(
         fusion_method = "arithmetic_mean"
 
     ensemble_score = max(1.0, min(5.0, weighted_score))
-    ensemble_classification = _classify(ensemble_score)
+    ensemble_classification = classify_extraversion(ensemble_score)
 
     # Ensemble confidence: mean of individual confidences,
     # boosted if methods agree
@@ -164,7 +157,7 @@ def score_ensemble(
     ensemble_confidence = min(1.0, mean_confidence + agreement_bonus)
 
     # Classification votes
-    vote_counts = {}
+    vote_counts: dict[str, int] = {}
     for c in classifications:
         vote_counts[c] = vote_counts.get(c, 0) + 1
 

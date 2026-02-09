@@ -522,13 +522,14 @@
         for (const [name, res] of Object.entries(methods)) {
           if (name === 'llm_facet') continue;
           const s = typeof res.score === 'number' ? res.score.toFixed(2) : '—';
-          const c = res.classification || '—';
+          const c = escapeHtml(String(res.classification || '—'));
           const conf = typeof res.confidence === 'number' ? (res.confidence * 100).toFixed(0) + '%' : '—';
           const icon = res.error ? '⚠️' : '✓';
+          const methodName = escapeHtml(String(name).replace(/_/g, ' '));
           methodRows += `
             <div class="method-row">
               <span class="method-icon">${icon}</span>
-              <span class="method-name">${name.replace(/_/g, ' ')}</span>
+              <span class="method-name">${methodName}</span>
               <span class="method-score">${s}</span>
               <span class="method-cls">${c}</span>
               <span class="method-conf">${conf}</span>
@@ -542,17 +543,23 @@
         facetRows = '<h4 style="margin-top:16px;margin-bottom:8px;color:var(--text-muted);">Facet Detail (LLM)</h4>';
         facetRows += data.facet_scores.map(fs => `
           <div class="facet-row">
-            <span class="facet-label">${fs.facet_code} ${fs.facet_name}</span>
+            <span class="facet-label">${escapeHtml(String(fs.facet_code || ''))} ${escapeHtml(String(fs.facet_name || ''))}</span>
             <div class="facet-bar-wrap">
-              <div class="facet-bar-fill" style="width: ${(fs.score / 5) * 100}%"></div>
+              <div class="facet-bar-fill" style="width: ${Number.isFinite(Number(fs.score)) ? Math.max(0, Math.min(100, (Number(fs.score) / 5) * 100)) : 0}%"></div>
             </div>
-            <span class="facet-score">${fs.score.toFixed(1)}</span>
+            <span class="facet-score">${Number.isFinite(Number(fs.score)) ? Number(fs.score).toFixed(1) : '—'}</span>
           </div>
         `).join('');
       }
 
-      const confidencePct = data.confidence ? (data.confidence * 100).toFixed(0) + '%' : '—';
+      const confidencePct = Number.isFinite(Number(data.confidence))
+        ? (Number(data.confidence) * 100).toFixed(0) + '%'
+        : '—';
       const agree = sr && sr.methods_agree ? 'Yes' : 'No';
+      const safeClassification = escapeHtml(String(data.classification || '—'));
+      const safeOverallScore = Number.isFinite(Number(data.overall_score))
+        ? Number(data.overall_score).toFixed(2)
+        : '—';
 
       const resultsDiv = document.createElement('div');
       resultsDiv.className = 'results';
@@ -561,9 +568,9 @@
         <div class="overall-row">
           <div>
             <div style="font-size: 12px; color: var(--text-muted);">Ensemble Score</div>
-            <div class="overall-score">${data.overall_score.toFixed(2)} / 5.0</div>
+            <div class="overall-score">${safeOverallScore} / 5.0</div>
           </div>
-          <span class="classification-badge">${data.classification}</span>
+          <span class="classification-badge">${safeClassification}</span>
         </div>
         <div style="display:flex;gap:24px;margin:8px 0 16px;font-size:13px;color:var(--text-muted);">
           <span>Confidence: <strong style="color:var(--text)">${confidencePct}</strong></span>

@@ -12,11 +12,12 @@ conversation without the user realizing they're being assessed.
 
 from __future__ import annotations
 
-from langchain_core.messages import AIMessage, SystemMessage
+from langchain_core.messages import BaseMessage, SystemMessage
 from langchain_openai import ChatOpenAI
 
 from src.graph.graph_client import get_all_probes
 from src.models.state import AssessmentState
+from src.settings import LLM_MODEL_NAME
 
 SYSTEM_PROMPT = """\
 You are a warm, curious, and empathetic conversational interviewer.
@@ -57,7 +58,7 @@ Keep it to 2-3 sentences. Be natural. Do NOT mention psychology or assessments.
 
 
 def _get_llm() -> ChatOpenAI:
-    return ChatOpenAI(model="gpt-5.2", temperature=0.7)
+    return ChatOpenAI(model=LLM_MODEL_NAME, temperature=0.7)
 
 
 def _select_probe(probes_used: list[str]) -> dict | None:
@@ -113,7 +114,7 @@ def interviewer_node(state: AssessmentState) -> dict:
 
     # ── Call LLM ──────────────────────────────────────────────────────
     llm = _get_llm()
-    response: AIMessage = llm.invoke(prompt_messages)
+    response: BaseMessage = llm.invoke(prompt_messages)
 
     # ── Return state updates ──────────────────────────────────────────
     return {

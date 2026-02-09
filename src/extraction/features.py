@@ -16,7 +16,7 @@ All ratio features are word-count-normalized (0.0–1.0 range).
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass
 from typing import Any
 
 from src.extraction.word_lists import (

@@ -9,6 +9,7 @@ Run:  PYTHONPATH=. python tests/test_e2e_mock.py
 from __future__ import annotations
 
 import json
+from pathlib import Path
 from unittest.mock import patch, MagicMock
 
 from langchain_core.messages import AIMessage
@@ -100,6 +101,7 @@ def test_full_interview_loop():
     _llm_scorer_call_count = 0
 
     from langgraph.types import Command
+    from src.models.initial_state import new_assessment_state
     from src.workflow import build_graph, MAX_TURNS
 
     # Mock the embedding scorer to avoid API calls
@@ -115,7 +117,8 @@ def test_full_interview_loop():
 
     with patch("src.agents.interviewer.ChatOpenAI") as MockInterviewerLLM, \
          patch("src.scoring.llm_scorer.ChatOpenAI") as MockScorerLLM, \
-         patch("src.scoring.embedding_scorer.score_with_embeddings", return_value=mock_embedding_result):
+         patch("src.scoring.ensemble.score_with_embeddings", return_value=mock_embedding_result), \
+         patch("src.agents.scorer.SessionLogger.save", return_value=Path("mock-session.json")):
 
         mock_interviewer = MagicMock()
         mock_interviewer.invoke = mock_interviewer_invoke
@@ -128,21 +131,10 @@ def test_full_interview_loop():
         graph = build_graph()
         config = {"configurable": {"thread_id": "test-e2e-001"}}
 
-        initial_state = {
-            "session_id": "test-e2e-001",
-            "probes_used": [],
-            "transcript": "",
-            "turn_records": [],
-            "turn_features": [],
-            "scoring_results": {},
-            "overall_score": 0.0,
-            "classification": "",
-            "confidence": 0.0,
-            "facet_scores": [],
-            "turn_count": 0,
-            "max_turns": MAX_TURNS,
-            "done": False,
-        }
+        initial_state = new_assessment_state(
+            session_id="test-e2e-001",
+            max_turns=MAX_TURNS,
+        )
 
         # First invocation
         result = graph.invoke(initial_state, config)

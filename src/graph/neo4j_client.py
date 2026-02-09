@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+from typing import Any
 
 from dotenv import load_dotenv
 from neo4j import GraphDatabase
@@ -95,7 +96,7 @@ def get_linguistic_features(driver, facet_code: str) -> list[dict]:
 def get_all_data_for_scoring(driver, trait_name: str = "Extraversion") -> dict:
     """Fetch everything the Scorer needs: facets, items, features."""
     facets = get_facets_for_trait(driver, trait_name)
-    result = {"trait": trait_name, "facets": []}
+    result: dict[str, Any] = {"trait": trait_name, "facets": []}
     for f in facets:
         items = get_items_for_facet(driver, f["code"])
         features = get_linguistic_features(driver, f["code"])

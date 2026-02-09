@@ -22,6 +22,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from src.extraction.features import LinguisticFeatures
+from src.settings import NEUTRAL_SCORE, classify_extraversion
 
 
 @dataclass
@@ -91,16 +92,6 @@ WEIGHTS: list[FeatureWeight] = [
 ]
 
 
-def _classify(score: float) -> str:
-    """Classify a 1–5 score into Low / Medium / High."""
-    if score <= 2.3:
-        return "Low"
-    elif score <= 3.6:
-        return "Medium"
-    else:
-        return "High"
-
-
 def _compute_confidence(score: float) -> float:
     """Estimate confidence based on distance from the neutral midpoint.
 
@@ -109,7 +100,7 @@ def _compute_confidence(score: float) -> float:
 
     Returns a value in [0.0, 1.0].
     """
-    distance = abs(score - 3.0)  # 0.0 – 2.0
+    distance = abs(score - NEUTRAL_SCORE)  # 0.0 – 2.0
     return min(1.0, distance / 1.5)  # saturates at ±1.5 from midpoint
 
 
@@ -136,8 +127,8 @@ def score_with_features(features: LinguisticFeatures) -> dict[str, Any]:
     if features.word_count == 0:
         return {
             "method": "feature_based",
-            "score": 3.0,
-            "classification": "Medium",
+            "score": NEUTRAL_SCORE,
+            "classification": classify_extraversion(NEUTRAL_SCORE),
             "confidence": 0.0,
             "feature_contributions": {},
             "features_used": {},
@@ -154,9 +145,9 @@ def score_with_features(features: LinguisticFeatures) -> dict[str, Any]:
         contributions[w.feature_name] = round(contribution, 4)
         total += contribution
 
-    raw_score = 3.0 + total
+    raw_score = NEUTRAL_SCORE + total
     score = max(1.0, min(5.0, raw_score))
-    classification = _classify(score)
+    classification = classify_extraversion(score)
     confidence = _compute_confidence(score)
 
     return {

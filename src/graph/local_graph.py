@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Any
 
 DATA_PATH = Path(__file__).resolve().parents[2] / "data" / "ipip_extraversion.json"
 
@@ -81,7 +82,7 @@ def get_all_probes() -> list[dict]:
 
 def get_all_data_for_scoring(trait_name: str = "Extraversion") -> dict:
     facets = get_facets_for_trait(trait_name)
-    result = {"trait": trait_name, "facets": []}
+    result: dict[str, Any] = {"trait": trait_name, "facets": []}
     for f in facets:
         items = get_items_for_facet(f["code"])
         features = get_linguistic_features(f["code"])
