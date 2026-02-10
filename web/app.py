@@ -9,15 +9,17 @@ from pathlib import Path
 from typing import Any
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException
-from fastapi.responses import HTMLResponse
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import HTMLResponse, JSONResponse
 from langgraph.types import Command
 from pydantic import BaseModel, Field
 
+from src.logging_config import setup_logging
 from src.models.initial_state import new_assessment_state
 from src.workflow import MAX_TURNS, build_graph
 
 load_dotenv()
+setup_logging()
 
 # Railway sometimes stores env values with trailing whitespace after copy/paste.
 for key in ("OPENAI_API_KEY", "NEO4J_URI", "NEO4J_USERNAME", "NEO4J_PASSWORD"):
@@ -30,6 +32,38 @@ logger = logging.getLogger(__name__)
 app = FastAPI(title="AI Psychometricist", version="0.2.0")
 graph = build_graph()
 MAX_MESSAGE_CHARS = 4000
+
+
+# ── Request logging middleware ────────────────────────────────────────────
+
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    """Log every request with method, path, and response time."""
+    import time
+    import uuid as _uuid
+
+    request_id = _uuid.uuid4().hex[:8]
+    start = time.perf_counter()
+    response = await call_next(request)
+    elapsed_ms = (time.perf_counter() - start) * 1000
+    logger.info(
+        "%s %s -> %s (%.0fms) [rid=%s]",
+        request.method,
+        request.url.path,
+        response.status_code,
+        elapsed_ms,
+        request_id,
+    )
+    response.headers["X-Request-ID"] = request_id
+    return response
+
+
+# ── Health check ──────────────────────────────────────────────────────────
+
+@app.get("/health")
+def health_check() -> JSONResponse:
+    """Lightweight health probe for deployment platforms."""
+    return JSONResponse({"status": "ok"})
 
 
 class RespondRequest(BaseModel):
@@ -109,7 +143,7 @@ def respond(req: RespondRequest) -> MessageResponse:
         raise HTTPException(
             status_code=400,
             detail="Unable to continue this session. Start a new session and try again.",
-        )
+        ) from None
 
     return _extract_response(result, req.session_id)
 

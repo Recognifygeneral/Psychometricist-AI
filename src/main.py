@@ -12,10 +12,12 @@ import uuid
 from dotenv import load_dotenv
 from langgraph.types import Command
 
+from src.logging_config import setup_logging
 from src.models.initial_state import new_assessment_state
-from src.workflow import build_graph, MAX_TURNS
+from src.workflow import MAX_TURNS, build_graph
 
 load_dotenv()
+setup_logging()
 
 
 BANNER = """

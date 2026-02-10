@@ -124,7 +124,7 @@ SOCIAL_REFERENCES: frozenset[str] = frozenset({
 FIRST_PERSON_SINGULAR: frozenset[str] = frozenset({
     "i", "me", "my", "mine", "myself",
     # Common contractions
-    "i'm", "i've", "i'll", "i'd", "i've",
+    "i'm", "i've", "i'll", "i'd",
 })
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -159,8 +159,7 @@ ASSERTIVE_LANGUAGE: frozenset[str] = frozenset({
     # Strength
     "strong", "bold", "brave", "courageous", "fearless", "powerful",
     "capable", "competent", "skilled", "accomplished", "successful",
-    "achieve", "achieved", "achievement", "accomplish", "accomplished",
-    "win", "won", "victory", "triumph", "excel", "excelled",
+    "achieve", "achieved", "achievement", "accomplish", "win", "won", "victory", "triumph", "excel", "excelled",
 })
 
 # ═══════════════════════════════════════════════════════════════════════════

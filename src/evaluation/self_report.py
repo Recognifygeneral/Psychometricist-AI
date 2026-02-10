@@ -8,11 +8,10 @@ import re
 import uuid
 from pathlib import Path
 
+from src.paths import IPIP_DATA_PATH as DATA_PATH
+from src.paths import RESULTS_PATH, SESSIONS_DIR
 from src.settings import classify_extraversion
 
-DATA_PATH = Path(__file__).resolve().parents[2] / "data" / "ipip_extraversion.json"
-RESULTS_PATH = Path(__file__).resolve().parents[2] / "data" / "pilot_results.csv"
-SESSIONS_DIR = Path(__file__).resolve().parents[2] / "data" / "sessions"
 SESSION_ID_PATTERN = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
 
 

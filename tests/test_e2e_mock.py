@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 from langchain_core.messages import AIMessage
 
@@ -65,30 +65,19 @@ USER_RESPONSES = [
 
 # ── Mock LLM factory ─────────────────────────────────────────────────────
 
-_interviewer_call_count = 0
+def _interviewer_side_effects():
+    """Return a list of side-effect responses for the mock interviewer."""
+    return [
+        AIMessage(content=text) for text in INTERVIEWER_RESPONSES
+    ] + [AIMessage(content="Tell me more about yourself.")]
 
 
-def mock_interviewer_invoke(messages):
-    """Return pre-scripted interviewer responses."""
-    global _interviewer_call_count
-    idx = _interviewer_call_count
-    _interviewer_call_count += 1
-    if idx < len(INTERVIEWER_RESPONSES):
-        return AIMessage(content=INTERVIEWER_RESPONSES[idx])
-    return AIMessage(content="Tell me more about yourself.")
-
-
-_llm_scorer_call_count = 0
-
-
-def mock_llm_scorer_invoke(messages):
-    """Return domain or facet scorer response based on call order."""
-    global _llm_scorer_call_count
-    _llm_scorer_call_count += 1
-    # First call is domain-level, second is facet-level
-    if _llm_scorer_call_count <= 1:
-        return AIMessage(content=LLM_DOMAIN_RESPONSE)
-    return AIMessage(content=LLM_FACET_RESPONSE)
+def _scorer_side_effects():
+    """Return a list of side-effect responses for the mock scorer LLM."""
+    return [
+        AIMessage(content=LLM_DOMAIN_RESPONSE),
+        AIMessage(content=LLM_FACET_RESPONSE),
+    ]
 
 
 # ── Test ──────────────────────────────────────────────────────────────────
@@ -96,13 +85,10 @@ def mock_llm_scorer_invoke(messages):
 
 def test_full_interview_loop():
     """Simulate a complete 10-turn interview + ensemble scoring with mocked LLMs."""
-    global _interviewer_call_count, _llm_scorer_call_count
-    _interviewer_call_count = 0
-    _llm_scorer_call_count = 0
-
     from langgraph.types import Command
+
     from src.models.initial_state import new_assessment_state
-    from src.workflow import build_graph, MAX_TURNS
+    from src.workflow import MAX_TURNS, build_graph
 
     # Mock the embedding scorer to avoid API calls
     mock_embedding_result = {
@@ -115,18 +101,18 @@ def test_full_interview_loop():
         "balance": 0.08,
     }
 
-    with patch("src.agents.interviewer.ChatOpenAI") as MockInterviewerLLM, \
-         patch("src.scoring.llm_scorer.ChatOpenAI") as MockScorerLLM, \
+    with patch("src.llm.ChatOpenAI") as MockInterviewerLLM, \
+         patch("src.scoring.llm_scorer.get_chat_llm") as mock_get_scorer_llm, \
          patch("src.scoring.ensemble.score_with_embeddings", return_value=mock_embedding_result), \
          patch("src.agents.scorer.SessionLogger.save", return_value=Path("mock-session.json")):
 
         mock_interviewer = MagicMock()
-        mock_interviewer.invoke = mock_interviewer_invoke
+        mock_interviewer.invoke.side_effect = _interviewer_side_effects()
         MockInterviewerLLM.return_value = mock_interviewer
 
         mock_scorer = MagicMock()
-        mock_scorer.invoke = mock_llm_scorer_invoke
-        MockScorerLLM.return_value = mock_scorer
+        mock_scorer.invoke.side_effect = _scorer_side_effects()
+        mock_get_scorer_llm.return_value = mock_scorer
 
         graph = build_graph()
         config = {"configurable": {"thread_id": "test-e2e-001"}}

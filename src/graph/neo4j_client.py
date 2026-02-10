@@ -5,10 +5,7 @@ from __future__ import annotations
 import os
 from typing import Any
 
-from dotenv import load_dotenv
 from neo4j import GraphDatabase
-
-load_dotenv()
 
 _URI = os.getenv("NEO4J_URI", "neo4j+s://localhost:7687")
 _USER = os.getenv("NEO4J_USERNAME", "neo4j")

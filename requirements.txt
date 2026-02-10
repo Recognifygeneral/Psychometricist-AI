@@ -1,3 +1,9 @@
+# ── requirements.txt ──────────────────────────────────────────────────────
+# Kept for Railway / Nixpacks deployment (which reads requirements.txt).
+# The canonical dependency spec lives in pyproject.toml.
+# Keep these in sync:  pip-compile pyproject.toml -o requirements.txt
+# ──────────────────────────────────────────────────────────────────────────
+
 # Core
 langgraph>=0.4,<1.0
 langchain-openai>=0.3,<1.0

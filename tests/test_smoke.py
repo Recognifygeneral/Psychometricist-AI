@@ -1,92 +1,100 @@
-"""Smoke test — verify the local graph fallback, new modules, and import chain."""
+"""Smoke tests — verify local graph, feature extraction, and import chain.
 
+All tests are local (no API key required).
+"""
+
+from __future__ import annotations
+
+from src.extraction.features import extract_features
 from src.graph.local_graph import (
-    get_facets_for_trait,
-    get_unused_probe,
     get_all_data_for_scoring,
-    get_probes_for_facet,
+    get_all_probes,
+    get_facets_for_trait,
     get_items_for_facet,
     get_linguistic_features,
-    get_all_probes,
+    get_probes_for_facet,
+    get_unused_probe,
 )
-
-# 1. Facets
-facets = get_facets_for_trait()
-print(f"Facets loaded: {len(facets)}")
-for f in facets:
-    print(f"  {f['code']} {f['name']}")
-
-# 2. Probes per facet
-print()
-for f in facets:
-    probes = get_probes_for_facet(f["code"])
-    print(f"  {f['code']}: {len(probes)} probes")
-
-# 3. All probes (flat pool)
-all_probes = get_all_probes()
-print(f"\nAll probes (flat pool): {len(all_probes)}")
-
-# 4. Unused probe logic
-probe = get_unused_probe("E1", [])
-print(f"\nFirst E1 probe: {probe['text'][:60]}...")
-probe2 = get_unused_probe("E1", [probe["id"]])
-print(f"Second E1 probe: {probe2['text'][:60]}...")
-probe3 = get_unused_probe("E1", [probe["id"], probe2["id"]])
-print(f"Third E1 probe (should be None): {probe3}")
-
-# 5. Items per facet
-print()
-for f in facets:
-    items = get_items_for_facet(f["code"])
-    print(f"  {f['code']}: {len(items)} items")
-
-# 6. Linguistic features
-print()
-for f in facets:
-    feats = get_linguistic_features(f["code"])
-    print(f"  {f['code']}: {len(feats)} linguistic features")
-
-# 7. Full scoring data
-scoring = get_all_data_for_scoring()
-total_items = sum(len(f["items"]) for f in scoring["facets"])
-total_feats = sum(len(f["linguistic_features"]) for f in scoring["facets"])
-print(f"\nScoring bundle: {len(scoring['facets'])} facets, {total_items} items, {total_feats} feature links")
-
-# 8. Feature extraction
-from src.extraction.features import extract_features
-feats = extract_features("I love meeting new people! We always have a great time together.")
-print(f"\nExtracted features: {feats.word_count} words, {feats.positive_emotion_count} positive, "
-      f"{feats.social_reference_count} social refs")
-
-# 9. Feature-based scorer
 from src.scoring.feature_scorer import score_with_features
-test_feats = extract_features("I love parties, friends, and exciting adventures! We go out every weekend.")
-feat_result = score_with_features(test_feats)
-print(f"Feature scorer: score={feat_result['score']:.2f}, cls={feat_result['classification']}, "
-      f"conf={feat_result['confidence']:.2f}")
-
-# 10. Import chain: agents + workflow
-from src.models.state import AssessmentState
-from src.agents.interviewer import interviewer_node
-from src.agents.scorer import scorer_node
-from src.workflow import build_graph, MAX_TURNS
 from src.session.logger import SessionLogger
-from src.scoring.ensemble import score_ensemble
+from src.workflow import MAX_TURNS, build_graph
 
-print(f"\nWorkflow: max {MAX_TURNS} turns")
 
-graph = build_graph()
-print(f"Graph compiled: {type(graph).__name__}")
+class TestLocalGraph:
+    """Verify the JSON-backed graph can load psychometric data."""
 
-# 11. Session logger
-logger = SessionLogger("smoke-test")
-logger.log_turn(
-    1,
-    "How are you?",
-    "I'm great, love people!",
-    probe_id="smoke-probe",
-    features=extract_features("I'm great, love people!"),
-)
-print(f"Session logger: {len(logger.turns)} turns logged")
+    def test_facets_loaded(self):
+        facets = get_facets_for_trait()
+        assert len(facets) == 6
+        codes = {f["code"] for f in facets}
+        assert codes == {"E1", "E2", "E3", "E4", "E5", "E6"}
 
-print("\n✓ All smoke tests passed!")
+    def test_probes_per_facet(self):
+        for facet in get_facets_for_trait():
+            probes = get_probes_for_facet(facet["code"])
+            assert len(probes) >= 1
+
+    def test_all_probes_flat_pool(self):
+        all_probes = get_all_probes()
+        assert len(all_probes) >= 10
+
+    def test_unused_probe_logic(self):
+        probe1 = get_unused_probe("E1", [])
+        assert probe1 is not None
+        probe2 = get_unused_probe("E1", [probe1["id"]])
+        assert probe2 is None or probe2["id"] != probe1["id"]
+
+    def test_items_per_facet(self):
+        for facet in get_facets_for_trait():
+            items = get_items_for_facet(facet["code"])
+            assert isinstance(items, list)
+
+    def test_linguistic_features_per_facet(self):
+        for facet in get_facets_for_trait():
+            feats = get_linguistic_features(facet["code"])
+            assert isinstance(feats, list)
+
+    def test_scoring_data_bundle(self):
+        scoring = get_all_data_for_scoring()
+        assert scoring["trait"] == "Extraversion"
+        assert len(scoring["facets"]) == 6
+        total_items = sum(len(f["items"]) for f in scoring["facets"])
+        assert total_items >= 10
+
+
+class TestImportChain:
+    """Verify that key modules import without errors."""
+
+    def test_feature_extraction(self):
+        feats = extract_features(
+            "I love meeting new people! We always have a great time together."
+        )
+        assert feats.word_count > 0
+        assert feats.positive_emotion_count > 0
+        assert feats.social_reference_count > 0
+
+    def test_feature_scorer(self):
+        feats = extract_features(
+            "I love parties, friends, and exciting adventures! "
+            "We go out every weekend."
+        )
+        result = score_with_features(feats)
+        assert 1.0 <= result["score"] <= 5.0
+        assert result["classification"] in ("Low", "Medium", "High")
+
+    def test_workflow_compiles(self):
+        assert MAX_TURNS == 10
+        graph = build_graph()
+        assert graph is not None
+
+    def test_session_logger_instantiates(self):
+        sl = SessionLogger("smoke-test")
+        sl.log_turn(
+            1,
+            "How are you?",
+            "I'm great, love people!",
+            probe_id="smoke-probe",
+            features=extract_features("I'm great, love people!"),
+        )
+        assert len(sl.turns) == 1
+

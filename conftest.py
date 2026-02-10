@@ -1,6 +1,5 @@
-"""pytest configuration — ensure `src` is importable."""
+"""pytest configuration — root conftest.
 
-import sys
-from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).resolve().parent))
+The project is installed in editable mode (``pip install -e .``),
+so ``src`` is already on ``sys.path``.  No manual path hacking needed.
+"""

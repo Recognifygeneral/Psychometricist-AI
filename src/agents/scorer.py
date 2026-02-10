@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
+import json
 import logging
 from typing import Any
 
 from langchain_core.messages import AIMessage
 
-from src.extraction.features import extract_features
+from src.extraction.features import LinguisticFeatures, extract_features
 from src.models.state import AssessmentState
 from src.scoring.ensemble import format_results, score_ensemble
 from src.session.logger import SessionLogger
@@ -40,11 +41,13 @@ def _extract_facet_scores(results: dict[str, Any]) -> list[dict[str, Any]]:
     return []
 
 
-def _save_session_log(state: AssessmentState, results: dict[str, Any]) -> str:
+def _save_session_log(
+    state: AssessmentState,
+    results: dict[str, Any],
+    features: LinguisticFeatures,
+) -> str:
     """Persist session log and return a status line for the summary output."""
     session_id = state.get("session_id", "unknown")
-    transcript = state.get("transcript", "")
-    features = extract_features(transcript)
 
     try:
         session_logger = SessionLogger(session_id=session_id)
@@ -55,8 +58,12 @@ def _save_session_log(state: AssessmentState, results: dict[str, Any]) -> str:
         session_logger.log_scoring(results)
         log_path = session_logger.save()
         return f"Session log saved -> {log_path.name}"
-    except Exception as e:
-        logger.warning("Session log failed for session %s: %s", session_id, e)
+    except (OSError, json.JSONDecodeError) as e:
+        logger.warning(
+            "Session log failed",
+            extra={"session_id": session_id, "error": str(e)},
+            exc_info=True,
+        )
         return f"Session log failed: {e}"
 
 
@@ -66,17 +73,19 @@ def scorer_node(state: AssessmentState) -> dict[str, Any]:
     if not transcript.strip():
         return _incomplete_assessment_response()
 
+    # Reuse per-turn features when available; fall back to full extraction.
     features = extract_features(transcript)
+
     results = score_ensemble(
         transcript=transcript,
         features=features,
         run_llm=True,
         run_embedding=True,
         run_features=True,
-        run_facet_level=True,  # secondary: per-facet for analysis
+        run_facet_level=True,
     )
     summary_text = format_results(results)
-    summary_text += f"\n\n{_save_session_log(state, results)}"
+    summary_text += f"\n\n{_save_session_log(state, results, features)}"
 
     return {
         "scoring_results": results,

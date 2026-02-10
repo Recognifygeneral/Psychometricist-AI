@@ -20,11 +20,10 @@ from __future__ import annotations
 from typing import Any
 
 from src.extraction.features import LinguisticFeatures, extract_features
-from src.scoring.feature_scorer import score_with_features
 from src.scoring.embedding_scorer import score_with_embeddings
+from src.scoring.feature_scorer import score_with_features
 from src.scoring.llm_scorer import score_domain_level, score_facet_level
 from src.settings import NEUTRAL_SCORE, classify_extraversion
-
 
 
 def _majority_vote(classifications: list[str]) -> str:
@@ -140,7 +139,7 @@ def score_ensemble(
     # Confidence-weighted mean
     total_weight = sum(confidences)
     if total_weight > 0:
-        weighted_score = sum(s * c for s, c in zip(scores, confidences)) / total_weight
+        weighted_score = sum(s * c for s, c in zip(scores, confidences, strict=True)) / total_weight
         fusion_method = "confidence_weighted_mean"
     else:
         weighted_score = sum(scores) / len(scores)
@@ -244,3 +243,24 @@ def format_results(result: dict) -> str:
     lines.append("")
     lines.append("═" * 60)
     return "\n".join(lines)
+
+
+def explain_individual_result(result: dict) -> str:
+    """Format a single scorer's result dict for human display.
+
+    Dispatches to the per-method formatter based on ``result["method"]``.
+    This is the single public entry-point; prefer it over importing
+    ``explain_score`` from individual scorer modules.
+    """
+    from src.scoring.embedding_scorer import explain_score as _emb_explain
+    from src.scoring.feature_scorer import explain_score as _feat_explain
+    from src.scoring.llm_scorer import explain_score as _llm_explain
+
+    method = result.get("method", "")
+    if method == "feature_based":
+        return _feat_explain(result)
+    if method == "embedding":
+        return _emb_explain(result)
+    if method in ("llm_domain", "llm_facet"):
+        return _llm_explain(result)
+    return f"Unknown method: {method}"

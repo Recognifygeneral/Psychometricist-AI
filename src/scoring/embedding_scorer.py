@@ -21,7 +21,6 @@ from typing import Any
 import numpy as np
 
 from src.settings import (
-    EMBEDDING_MODEL_NAME,
     NEUTRAL_SCORE,
     classify_extraversion,
 )
@@ -144,8 +143,9 @@ def _cosine_similarity(a: np.ndarray, b: np.ndarray) -> float:
 
 def _get_embeddings_model():
     """Lazily import and create the OpenAI embeddings model."""
-    from langchain_openai import OpenAIEmbeddings
-    return OpenAIEmbeddings(model=EMBEDDING_MODEL_NAME)
+    from src.llm import get_embeddings_model
+
+    return get_embeddings_model()
 
 
 def score_with_embeddings(
@@ -203,10 +203,7 @@ def score_with_embeddings(
         # Convert relative similarity to 1–5 score
         # balance ∈ [-1, 1]: positive → closer to high-E
         denom = high_sim + low_sim
-        if denom < 1e-8:
-            balance = 0.0
-        else:
-            balance = (high_sim - low_sim) / denom
+        balance = 0.0 if denom < 1e-8 else (high_sim - low_sim) / denom
 
         # Map to [1, 5] with amplification
         # Empirically, cosine similarities are often close so we amplify

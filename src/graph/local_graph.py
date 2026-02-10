@@ -8,10 +8,9 @@ infrastructure (just an OpenAI key).
 from __future__ import annotations
 
 import json
-from pathlib import Path
 from typing import Any
 
-DATA_PATH = Path(__file__).resolve().parents[2] / "data" / "ipip_extraversion.json"
+from src.paths import IPIP_DATA_PATH as DATA_PATH
 
 _CACHE: dict | None = None
 

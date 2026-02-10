@@ -12,14 +12,13 @@ File format: {session_id}_{timestamp}.json
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 from src.extraction.features import LinguisticFeatures
+from src.paths import SESSIONS_DIR
 from src.settings import LLM_MODEL_NAME
-
-SESSIONS_DIR = Path(__file__).resolve().parents[2] / "data" / "sessions"
 
 
 def _ensure_dir() -> None:
@@ -45,7 +44,7 @@ class SessionLogger:
 
     def __init__(self, session_id: str):
         self.session_id = session_id
-        self.started_at = datetime.now(timezone.utc).isoformat()
+        self.started_at = datetime.now(UTC).isoformat()
         self.completed_at: str | None = None
         self.turns: list[dict[str, Any]] = []
         self.scoring: dict[str, Any] = {}
@@ -80,7 +79,7 @@ class SessionLogger:
         """
         turn_record = {
             "turn_number": turn_number,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "probe_id": probe_id,
             "ai_message": ai_message,
             "user_message": user_message,
@@ -97,7 +96,7 @@ class SessionLogger:
             Output from ensemble.score_ensemble().
         """
         self.scoring = scoring_results
-        self.completed_at = datetime.now(timezone.utc).isoformat()
+        self.completed_at = datetime.now(UTC).isoformat()
 
     def log_self_report(self, self_report_score: float) -> None:
         """Attach the self-report validation score.
@@ -136,9 +135,9 @@ class SessionLogger:
         _ensure_dir()
 
         if self.completed_at is None:
-            self.completed_at = datetime.now(timezone.utc).isoformat()
+            self.completed_at = datetime.now(UTC).isoformat()
 
-        timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+        timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
         filename = f"{self.session_id}_{timestamp}.json"
         filepath = SESSIONS_DIR / filename
 

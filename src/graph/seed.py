@@ -9,11 +9,9 @@ The script is idempotent: it uses MERGE so re-running won't create duplicates.
 from __future__ import annotations
 
 import json
-from pathlib import Path
 
 from src.graph.neo4j_client import get_driver
-
-DATA_PATH = Path(__file__).resolve().parents[2] / "data" / "ipip_extraversion.json"
+from src.paths import IPIP_DATA_PATH as DATA_PATH
 
 
 def _load_data() -> dict:

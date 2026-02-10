@@ -7,9 +7,9 @@ import logging
 from typing import Any
 
 from langchain_core.messages import HumanMessage, SystemMessage
-from langchain_openai import ChatOpenAI
 
-from src.settings import LLM_MODEL_NAME, NEUTRAL_SCORE, classify_extraversion
+from src.llm import get_chat_llm
+from src.settings import NEUTRAL_SCORE, classify_extraversion
 
 logger = logging.getLogger(__name__)
 
@@ -49,10 +49,6 @@ Return valid JSON only:
 """
 
 
-def _get_llm() -> ChatOpenAI:
-    return ChatOpenAI(model=LLM_MODEL_NAME, temperature=0.0)
-
-
 def _parse_json(raw: str) -> dict[str, Any]:
     """Parse JSON from model output, stripping markdown fences if needed."""
     text = raw.strip()
@@ -80,7 +76,7 @@ def score_domain_level(transcript: str) -> dict[str, Any]:
         }
 
     try:
-        llm = _get_llm()
+        llm = get_chat_llm(temperature=0.0)
         response = llm.invoke(
             [
                 SystemMessage(content=DOMAIN_SCORER_PROMPT),
@@ -136,7 +132,7 @@ def score_facet_level(transcript: str) -> dict[str, Any]:
         }
 
     try:
-        llm = _get_llm()
+        llm = get_chat_llm(temperature=0.0)
         response = llm.invoke(
             [
                 SystemMessage(content=FACET_SCORER_PROMPT),

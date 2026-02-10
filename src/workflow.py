@@ -17,7 +17,7 @@ and wait for real user input, which the CLI runner resumes via
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import END, START, StateGraph
@@ -87,7 +87,7 @@ def update_state(state: AssessmentState) -> dict:
     # Build turn record
     turn_record: TurnRecord = {
         "turn_number": turn_count,
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
         "ai_message": last_ai_text,
         "user_message": user_text,
         "features": features_dict,
@@ -112,8 +112,15 @@ def update_state(state: AssessmentState) -> dict:
 # ── Build the graph ───────────────────────────────────────────────────────
 
 
-def build_graph():
-    """Construct and compile the assessment StateGraph."""
+def build_graph(checkpointer=None):
+    """Construct and compile the assessment StateGraph.
+
+    Parameters
+    ----------
+    checkpointer : optional
+        A LangGraph checkpointer instance.  Defaults to an in-memory
+        ``MemorySaver`` when *None*.
+    """
     graph = StateGraph(AssessmentState)
 
     graph.add_node("router", router)
@@ -129,5 +136,6 @@ def build_graph():
     graph.add_edge("update_state", "router")
     graph.add_edge("scorer", END)
 
-    checkpointer = MemorySaver()
+    if checkpointer is None:
+        checkpointer = MemorySaver()
     return graph.compile(checkpointer=checkpointer)

@@ -14,15 +14,12 @@ from __future__ import annotations
 
 import csv
 import json
-from pathlib import Path
 
 import numpy as np
 from scipy import stats
 
+from src.paths import RESULTS_PATH, SESSIONS_DIR
 from src.settings import classify_extraversion
-
-RESULTS_PATH = Path(__file__).resolve().parents[2] / "data" / "pilot_results.csv"
-SESSIONS_DIR = Path(__file__).resolve().parents[2] / "data" / "sessions"
 
 
 def load_paired_scores() -> tuple[list[float], list[float], list[str]]:
@@ -113,7 +110,7 @@ def _compute_metrics(self_scores: list[float], ai_scores: list[float]) -> dict:
 
     sr_labels = [classify_extraversion(s) for s in self_scores]
     ai_labels = [classify_extraversion(s) for s in ai_scores]
-    agreement = sum(a == b for a, b in zip(sr_labels, ai_labels)) / n
+    agreement = sum(a == b for a, b in zip(sr_labels, ai_labels, strict=True)) / n
 
     return {
         "n": n,

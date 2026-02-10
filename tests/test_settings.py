@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import importlib
-
 import src.settings as settings
 
 
@@ -16,7 +14,7 @@ def test_classify_extraversion_uses_thresholds():
 def test_invalid_threshold_env_falls_back(monkeypatch):
     monkeypatch.setenv("LOW_EXTRAVERSION_THRESHOLD", "not-a-number")
     monkeypatch.setenv("HIGH_EXTRAVERSION_THRESHOLD", "still-not-a-number")
-    importlib.reload(settings)
+    settings.reset()
 
     assert settings.LOW_EXTRAVERSION_THRESHOLD == 2.3
     assert settings.HIGH_EXTRAVERSION_THRESHOLD == 3.6
@@ -25,4 +23,16 @@ def test_invalid_threshold_env_falls_back(monkeypatch):
     # keep the expected behavior.
     monkeypatch.setenv("LOW_EXTRAVERSION_THRESHOLD", "2.3")
     monkeypatch.setenv("HIGH_EXTRAVERSION_THRESHOLD", "3.6")
-    importlib.reload(settings)
+    settings.reset()
+
+
+def test_lazy_model_name(monkeypatch):
+    """Model names are read lazily — monkeypatch works without reload."""
+    monkeypatch.setenv("OPENAI_CHAT_MODEL", "gpt-test-model")
+    settings.reset()
+
+    assert settings.LLM_MODEL_NAME == "gpt-test-model"
+
+    # Restore default
+    monkeypatch.delenv("OPENAI_CHAT_MODEL", raising=False)
+    settings.reset()

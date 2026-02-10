@@ -6,7 +6,7 @@ with mocks since they require API keys.
 """
 
 from src.extraction.features import extract_features
-from src.scoring.feature_scorer import score_with_features, explain_score
+from src.scoring.feature_scorer import explain_score, score_with_features
 
 
 class TestFeatureScorer:
@@ -131,7 +131,7 @@ class TestEnsembleStructure:
         assert "warning" in result
 
     def test_format_results(self):
-        from src.scoring.ensemble import score_ensemble, format_results
+        from src.scoring.ensemble import format_results, score_ensemble
 
         result = score_ensemble(
             transcript="I enjoy being with people and having fun!",
@@ -149,7 +149,7 @@ class TestScorerIntegration:
     """Test that scoring modules import correctly and have expected APIs."""
 
     def test_feature_scorer_imports(self):
-        from src.scoring.feature_scorer import score_with_features, explain_score, WEIGHTS
+        from src.scoring.feature_scorer import WEIGHTS, explain_score, score_with_features
         assert callable(score_with_features)
         assert callable(explain_score)
         assert len(WEIGHTS) > 0
@@ -164,12 +164,12 @@ class TestScorerIntegration:
         assert callable(score_with_embeddings)
 
     def test_ensemble_imports(self):
-        from src.scoring.ensemble import score_ensemble, format_results
+        from src.scoring.ensemble import format_results, score_ensemble
         assert callable(score_ensemble)
         assert callable(format_results)
 
     def test_session_logger_imports(self):
-        from src.session.logger import SessionLogger, load_session, list_sessions
+        from src.session.logger import SessionLogger, list_sessions, load_session
         assert callable(load_session)
         assert callable(list_sessions)
         logger = SessionLogger(session_id="test_001")
