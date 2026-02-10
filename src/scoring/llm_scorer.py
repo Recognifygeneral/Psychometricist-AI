@@ -110,7 +110,7 @@ def score_domain_level(transcript: str) -> dict[str, Any]:
             "error": f"LLM parse error: {e}",
         }
 
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 — LangChain/OpenAI raise unpredictable types
         logger.warning("LLM domain scorer failed: %s", e)
         return {
             "method": "llm_domain",
@@ -164,7 +164,7 @@ def score_facet_level(transcript: str) -> dict[str, Any]:
             "error": f"LLM facet parse error: {str(e)}",
         }
 
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 — LangChain/OpenAI raise unpredictable types
         logger.warning("LLM facet scorer failed: %s", e)
         return {
             "method": "llm_facet",

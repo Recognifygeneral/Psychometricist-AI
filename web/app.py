@@ -4,12 +4,14 @@ from __future__ import annotations
 
 import logging
 import os
+import time
 import uuid
 from pathlib import Path
 from typing import Any
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
 from langgraph.types import Command
 from pydantic import BaseModel, Field
@@ -30,8 +32,41 @@ for key in ("OPENAI_API_KEY", "NEO4J_URI", "NEO4J_USERNAME", "NEO4J_PASSWORD"):
 logger = logging.getLogger(__name__)
 
 app = FastAPI(title="AI Psychometricist", version="0.2.0")
-graph = build_graph()
+
+# ── CORS ────────────────────────────────────────────────────────────────────
+
+_ALLOWED_ORIGINS = os.getenv(
+    "ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:8080"
+).split(",")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[o.strip() for o in _ALLOWED_ORIGINS],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 MAX_MESSAGE_CHARS = 4000
+
+
+# ── Lazy graph factory ─────────────────────────────────────────────────────
+
+_graph = None
+
+
+def get_graph():
+    """Return the compiled LangGraph workflow, building it lazily on first use."""
+    global _graph  # noqa: PLW0603
+    if _graph is None:
+        _graph = build_graph()
+    return _graph
+
+
+def reset_graph() -> None:
+    """Clear the cached graph — call from tests or to reconfigure."""
+    global _graph  # noqa: PLW0603
+    _graph = None
 
 
 # ── Request logging middleware ────────────────────────────────────────────
@@ -39,10 +74,7 @@ MAX_MESSAGE_CHARS = 4000
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
     """Log every request with method, path, and response time."""
-    import time
-    import uuid as _uuid
-
-    request_id = _uuid.uuid4().hex[:8]
+    request_id = uuid.uuid4().hex[:8]
     start = time.perf_counter()
     response = await call_next(request)
     elapsed_ms = (time.perf_counter() - start) * 1000
@@ -118,7 +150,7 @@ def start_session() -> MessageResponse:
     config = {"configurable": {"thread_id": session_id}}
     initial_state = new_assessment_state(session_id=session_id, max_turns=MAX_TURNS)
 
-    result = graph.invoke(initial_state, config)
+    result = get_graph().invoke(initial_state, config)
     return _extract_response(result, session_id)
 
 
@@ -137,8 +169,8 @@ def respond(req: RespondRequest) -> MessageResponse:
     config = {"configurable": {"thread_id": req.session_id}}
 
     try:
-        result = graph.invoke(Command(resume=user_message), config)
-    except Exception:
+        result = get_graph().invoke(Command(resume=user_message), config)
+    except Exception:  # noqa: BLE001 — convert any graph error to user-friendly 400
         logger.exception("Failed to resume session %s", req.session_id)
         raise HTTPException(
             status_code=400,

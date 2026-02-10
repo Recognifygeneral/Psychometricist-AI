@@ -224,7 +224,7 @@ def score_with_embeddings(
             "balance": round(balance, 4),
         }
 
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 — embedding API errors are unpredictable
         logger.warning("Embedding scorer failed: %s", e)
         return {
             "method": "embedding",

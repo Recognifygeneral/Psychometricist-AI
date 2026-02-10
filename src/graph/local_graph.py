@@ -15,6 +15,12 @@ from src.paths import IPIP_DATA_PATH as DATA_PATH
 _CACHE: dict | None = None
 
 
+def reset() -> None:
+    """Clear the cached JSON data — call from tests."""
+    global _CACHE
+    _CACHE = None
+
+
 def _load() -> dict:
     global _CACHE
     if _CACHE is None:

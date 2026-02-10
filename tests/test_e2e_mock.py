@@ -130,17 +130,11 @@ def test_full_interview_loop():
             if result.get("classification"):
                 break
             if turn >= len(USER_RESPONSES):
-                print(f"WARN: Ran out of user responses at turn {turn}")
                 break
             result = graph.invoke(Command(resume=USER_RESPONSES[turn]), config)
             turn += 1
 
     # ── Assertions ────────────────────────────────────────────────────
-    print(f"\nTurns completed: {turn}")
-    print(f"Classification:  {result.get('classification')}")
-    print(f"Overall score:   {result.get('overall_score')}")
-    print(f"Confidence:      {result.get('confidence')}")
-
     assert result.get("classification") in ("Low", "Medium", "High"), \
         f"Expected classification, got: {result.get('classification')}"
     assert result.get("overall_score", 0) > 0, "Expected a positive score"
@@ -153,7 +147,6 @@ def test_full_interview_loop():
 
     individual = scoring["individual_results"]
     assert "feature_based" in individual, "Missing feature_based scorer"
-    print(f"Feature score:   {individual['feature_based'].get('score')}")
 
     # Check transcript accumulated
     transcript = result.get("transcript", "")
@@ -167,12 +160,6 @@ def test_full_interview_loop():
     turn_features = result.get("turn_features", [])
     assert len(turn_features) > 0, "No turn features found"
     assert "word_count" in turn_features[0], "Turn features missing word_count"
-
-    print(f"Transcript length: {len(transcript)} chars")
-    print(f"Turn records: {len(turn_records)}")
-    print(f"Turn features: {len(turn_features)}")
-
-    print("\n✓ End-to-end test PASSED!")
 
 
 if __name__ == "__main__":

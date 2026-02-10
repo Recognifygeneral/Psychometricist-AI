@@ -8,6 +8,7 @@ from __future__ import annotations
 import json
 from unittest.mock import MagicMock, patch
 
+import pytest
 from langchain_core.messages import AIMessage
 
 from src.scoring.llm_scorer import (
@@ -60,8 +61,7 @@ class TestParseJson:
         assert result["score"] == 3.0
 
     def test_raises_on_invalid_json(self):
-        import pytest
-        with pytest.raises(json.JSONDecodeError):
+        with pytest.raises(json.JSONDecodeError, match="Expecting value"):
             _parse_json("not json at all")
 
 

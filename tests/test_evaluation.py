@@ -73,3 +73,36 @@ def test_attach_self_report_rejects_invalid_session_id(tmp_path, monkeypatch):
     assert attached is False
     assert ai_score is None
     assert ai_classification == ""
+
+
+# ── _compute_metrics tests ─────────────────────────────────────────────
+
+
+def test_compute_metrics_happy_path():
+    from src.evaluation.compare import _compute_metrics
+
+    self_scores = [1.0, 2.0, 3.0, 4.0, 5.0]
+    ai_scores = [1.5, 2.5, 3.0, 3.5, 4.5]
+    metrics = _compute_metrics(self_scores, ai_scores)
+
+    assert metrics["n"] == 5
+    assert 0.9 < metrics["pearson_r"] <= 1.0
+    assert metrics["mae"] > 0
+    assert 0 <= metrics["classification_agreement"] <= 1
+
+
+def test_compute_metrics_too_few_scores():
+    from src.evaluation.compare import _compute_metrics
+
+    metrics = _compute_metrics([3.0], [3.0])
+    assert "error" in metrics
+
+
+def test_compute_metrics_perfect_agreement():
+    from src.evaluation.compare import _compute_metrics
+
+    scores = [1.0, 3.0, 5.0]
+    metrics = _compute_metrics(scores, scores)
+    assert metrics["pearson_r"] == 1.0
+    assert metrics["mae"] == 0.0
+    assert metrics["classification_agreement"] == 1.0

@@ -67,26 +67,13 @@ def _save_session_log(
         return f"Session log failed: {e}"
 
 
-def scorer_node(state: AssessmentState) -> dict[str, Any]:
-    """LangGraph node: run ensemble scoring, save session output, and respond."""
-    transcript = state.get("transcript", "")
-    if not transcript.strip():
-        return _incomplete_assessment_response()
-
-    # Reuse per-turn features when available; fall back to full extraction.
-    features = extract_features(transcript)
-
-    results = score_ensemble(
-        transcript=transcript,
-        features=features,
-        run_llm=True,
-        run_embedding=True,
-        run_features=True,
-        run_facet_level=True,
-    )
+def _build_scorer_response(
+    results: dict[str, Any],
+    log_status: str,
+) -> dict[str, Any]:
+    """Assemble the state-update dict from ensemble scoring results."""
     summary_text = format_results(results)
-    summary_text += f"\n\n{_save_session_log(state, results, features)}"
-
+    summary_text += f"\n\n{log_status}"
     return {
         "scoring_results": results,
         "overall_score": results.get("ensemble_score", NEUTRAL_SCORE),
@@ -98,3 +85,27 @@ def scorer_node(state: AssessmentState) -> dict[str, Any]:
         "facet_scores": _extract_facet_scores(results),
         "messages": [AIMessage(content=summary_text)],
     }
+
+
+def scorer_node(state: AssessmentState) -> dict[str, Any]:
+    """LangGraph node: run ensemble scoring, save session output, and respond."""
+    transcript = state.get("transcript", "")
+    if not transcript.strip():
+        return _incomplete_assessment_response()
+
+    # Full-transcript extraction is intentional: cross-turn lexical diversity,
+    # overall ratios, and total word count differ from per-turn means.
+    # Per-turn features (in state["turn_features"]) are stored for post-hoc
+    # analysis but are NOT substitutes for whole-transcript scoring.
+    features = extract_features(transcript)
+
+    results = score_ensemble(
+        transcript=transcript,
+        features=features,
+        run_llm=True,
+        run_embedding=True,
+        run_features=True,
+        run_facet_level=True,
+    )
+    log_status = _save_session_log(state, results, features)
+    return _build_scorer_response(results, log_status)

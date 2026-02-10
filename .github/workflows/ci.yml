@@ -32,4 +32,4 @@ jobs:
         run: mypy src web tests
 
       - name: Test
-        run: pytest -q
+        run: pytest -q --cov=src --cov=web --cov-report=term-missing:skip-covered --cov-fail-under=65

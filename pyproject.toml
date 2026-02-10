@@ -23,6 +23,7 @@ dev = [
     "mypy>=1.11",
     "pre-commit>=3.8",
     "httpx>=0.27",
+    "pip-tools>=7.4",
 ]
 web = [
     "fastapi>=0.115",
@@ -45,10 +46,11 @@ target-version = "py311"
 exclude = [".venv", "data/sessions"]
 
 [tool.ruff.lint]
-select = ["E4", "E7", "E9", "F", "I", "B", "UP", "SIM"]
+select = ["E4", "E7", "E9", "F", "I", "B", "BLE", "UP", "SIM", "S", "PT"]
 
 [tool.ruff.lint.per-file-ignores]
-# (no per-file ignores needed)
+"tests/**" = ["S101"]
+"web/app.py" = ["S104"]
 
 [tool.mypy]
 python_version = "3.11"

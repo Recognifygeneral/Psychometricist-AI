@@ -54,7 +54,7 @@ class FakeGraph:
 @pytest.fixture
 def client_with_fake_graph(monkeypatch):
     fake = FakeGraph()
-    monkeypatch.setattr(web_app, "graph", fake)
+    monkeypatch.setattr(web_app, "_graph", fake)
     return TestClient(web_app.app), fake
 
 
@@ -102,7 +102,7 @@ def test_respond_rejects_invalid_session_id(client_with_fake_graph):
 
 def test_respond_returns_safe_error_when_resume_fails(monkeypatch):
     fake = FakeGraph(fail_on_resume=True)
-    monkeypatch.setattr(web_app, "graph", fake)
+    monkeypatch.setattr(web_app, "_graph", fake)
     client = TestClient(web_app.app)
 
     res = client.post(
@@ -115,7 +115,7 @@ def test_respond_returns_safe_error_when_resume_fails(monkeypatch):
 
 def test_respond_returns_complete_status(monkeypatch):
     fake = FakeGraph(complete_on_resume=True)
-    monkeypatch.setattr(web_app, "graph", fake)
+    monkeypatch.setattr(web_app, "_graph", fake)
     client = TestClient(web_app.app)
 
     res = client.post(
@@ -127,3 +127,19 @@ def test_respond_returns_complete_status(monkeypatch):
     assert data["status"] == "complete"
     assert data["classification"] == "High"
     assert data["overall_score"] == 3.8
+
+
+def test_health_check():
+    """Health endpoint should always respond 200."""
+    client = TestClient(web_app.app)
+    res = client.get("/health")
+    assert res.status_code == 200
+    assert res.json()["status"] == "ok"
+
+
+def test_cors_headers_present():
+    """Requests with an Origin header should get CORS headers back."""
+    client = TestClient(web_app.app)
+    res = client.get("/health", headers={"Origin": "http://localhost:3000"})
+    assert res.status_code == 200
+    assert "access-control-allow-origin" in res.headers

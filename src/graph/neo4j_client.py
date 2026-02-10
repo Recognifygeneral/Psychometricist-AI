@@ -7,14 +7,17 @@ from typing import Any
 
 from neo4j import GraphDatabase
 
-_URI = os.getenv("NEO4J_URI", "neo4j+s://localhost:7687")
-_USER = os.getenv("NEO4J_USERNAME", "neo4j")
-_PWD = os.getenv("NEO4J_PASSWORD", "")
-
 
 def get_driver():
-    """Return a Neo4j driver instance (caller must close it or use `with`)."""
-    return GraphDatabase.driver(_URI, auth=(_USER, _PWD))
+    """Return a Neo4j driver instance (caller must close it or use ``with``).
+
+    Connection parameters are read lazily from environment variables
+    on each call — never cached at module level.
+    """
+    uri = os.getenv("NEO4J_URI", "neo4j+s://localhost:7687")
+    user = os.getenv("NEO4J_USERNAME", "neo4j")
+    pwd = os.getenv("NEO4J_PASSWORD", "")
+    return GraphDatabase.driver(uri, auth=(user, pwd))
 
 
 # ── Query helpers used by agents ──────────────────────────────────────────
@@ -101,3 +104,12 @@ def get_all_data_for_scoring(driver, trait_name: str = "Extraversion") -> dict:
             {**f, "items": items, "linguistic_features": features}
         )
     return result
+
+
+def get_all_probes(driver, trait_name: str = "Extraversion") -> list[dict]:
+    """Return all probes as a flat list across all facets."""
+    facets = get_facets_for_trait(driver, trait_name)
+    all_probes: list[dict] = []
+    for facet in facets:
+        all_probes.extend(get_probes_for_facet(driver, facet["code"]))
+    return all_probes

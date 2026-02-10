@@ -139,7 +139,11 @@ def score_ensemble(
     # Confidence-weighted mean
     total_weight = sum(confidences)
     if total_weight > 0:
-        weighted_score = sum(s * c for s, c in zip(scores, confidences, strict=True)) / total_weight
+        weighted_sum = sum(
+            score * conf
+            for score, conf in zip(scores, confidences, strict=True)
+        )
+        weighted_score = weighted_sum / total_weight
         fusion_method = "confidence_weighted_mean"
     else:
         weighted_score = sum(scores) / len(scores)
