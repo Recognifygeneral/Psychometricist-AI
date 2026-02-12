@@ -269,9 +269,9 @@ See [ROADMAP.md](ROADMAP.md) for the full plan.
 - Yarkoni, T. (2010). Personality in 100,000 words. *Social Psychological and Personality Science*, 1(4), 363–373.
 
 ## License
+Psychometricist-AI is licensed under the GNU Affero General Public License v3.0 (AGPL-3.0).
+This ensures that any modified version of this software, including versions deployed as a service, must remain open source under the same license.
 
-MIT License — see [LICENSE](LICENSE) for details.
-Uses **IPIP public-domain items** — no licensing restrictions.
 
 ## Contact
 
