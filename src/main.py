@@ -1,4 +1,10 @@
-"""CLI entry-point — run the psychometric interview in the terminal.
+"""
+## License
+Psychometricist-AI is licensed under the GNU Affero General Public License v3.0 (AGPL-3.0).
+This ensures that any modified version of this software, including versions deployed as a service, must remain open source under the same license.
+
+
+CLI entry-point — run the psychometric interview in the terminal.
 
 Usage:
     python -m src.main
